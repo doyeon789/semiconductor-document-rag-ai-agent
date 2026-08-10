@@ -16,7 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28,<1",
+    "httpx2>=2,<3",
     "mypy>=1.14,<2",
     "pytest>=8.3,<9",
     "ruff>=0.9,<1",
@@ -33,6 +33,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 addopts = ["--strict-config", "--strict-markers", "-ra"]
+pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]
