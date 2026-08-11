@@ -53,7 +53,7 @@ class LocalSearchService:
     def search(
         self,
         query: str,
-        mode: SearchMode = SearchMode.HYBRID,
+        mode: SearchMode = SearchMode.BM25,
         top_k: int = 5,
     ) -> tuple[SearchHit, ...]:
         """Search the local corpus with the selected retrieval strategy.
@@ -62,7 +62,7 @@ class LocalSearchService:
         ----------
         query : str
             User search query.
-        mode : SearchMode, default=SearchMode.HYBRID
+        mode : SearchMode, default=SearchMode.BM25
             Sparse, dense, or fused retrieval strategy.
         top_k : int, default=5
             Maximum number of results.

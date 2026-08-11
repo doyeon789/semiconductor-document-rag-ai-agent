@@ -45,7 +45,7 @@ class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     query: str = Field(min_length=1)
-    mode: SearchMode = SearchMode.HYBRID
+    mode: SearchMode = SearchMode.BM25
     top_k: int = Field(default=5, ge=1, le=20)
 
 

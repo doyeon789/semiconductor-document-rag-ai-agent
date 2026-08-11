@@ -138,6 +138,24 @@ def test_search_endpoint_returns_ranked_page_traceability() -> None:
     assert body["results"][0]["score"] > 0
 
 
+def test_search_endpoint_uses_bm25_by_default() -> None:
+    """Use the strongest measured baseline when the mode is omitted."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/search",
+            json={"query": "산화 공정", "top_k": 1},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "bm25"
+    assert body["embedding_model"] is None
+    assert body["results"][0]["page_start"] == 8
+
+
 def test_search_endpoint_rejects_unknown_modes_and_limits() -> None:
     """Reject unsupported retrieval modes and unsafe result limits."""
     app.dependency_overrides[get_search_service] = _provide_test_search_service
