@@ -8,6 +8,11 @@ from semiconductor_rag.retrieval.embedding import (
     EmbeddingVector,
     FastEmbedder,
 )
+from semiconductor_rag.retrieval.hybrid import (
+    HybridIndex,
+    SearchIndex,
+    reciprocal_rank_fusion,
+)
 from semiconductor_rag.retrieval.models import SearchHit
 
 __all__ = [
@@ -17,6 +22,9 @@ __all__ = [
     "Embedder",
     "EmbeddingVector",
     "FastEmbedder",
+    "HybridIndex",
     "SearchHit",
+    "SearchIndex",
+    "reciprocal_rank_fusion",
     "tokenize_search_text",
 ]
