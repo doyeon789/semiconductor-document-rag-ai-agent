@@ -150,6 +150,8 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
@@ -209,6 +211,23 @@ tempCodeRunnerFile.py
 
 # PyPI configuration file
 .pypirc
+
+# Project document data and generated artifacts
+*.key
+*.pem
+*.pdf
+/data/raw/
+/data/private/
+/artifacts/
+/indexes/
+/output/
+/tmp/
+
+# Local-only PDF reference material and generators
+/assets/reference_images/
+/scripts/extract_reference_images.py
+/scripts/generate_semiconductor_process_pdf.py
+/scripts/v13_content.py
 
 # Marimo
 marimo/_static/
