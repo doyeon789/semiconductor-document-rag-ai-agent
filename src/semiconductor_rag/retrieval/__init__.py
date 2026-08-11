@@ -14,6 +14,7 @@ from semiconductor_rag.retrieval.hybrid import (
     reciprocal_rank_fusion,
 )
 from semiconductor_rag.retrieval.models import SearchHit
+from semiconductor_rag.retrieval.service import LocalSearchService, SearchMode
 
 __all__ = [
     "DEFAULT_EMBEDDING_MODEL",
@@ -23,8 +24,10 @@ __all__ = [
     "EmbeddingVector",
     "FastEmbedder",
     "HybridIndex",
+    "LocalSearchService",
     "SearchHit",
     "SearchIndex",
+    "SearchMode",
     "reciprocal_rank_fusion",
     "tokenize_search_text",
 ]

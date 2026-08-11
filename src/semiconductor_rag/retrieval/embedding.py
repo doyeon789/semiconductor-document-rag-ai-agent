@@ -69,11 +69,8 @@ class FastEmbedder:
         if not model_name.strip():
             raise ValueError("model_name must not be blank")
         self.model_name = model_name
-        self._model = TextEmbedding(
-            model_name=model_name,
-            cache_dir=str(cache_dir),
-            lazy_load=True,
-        )
+        self._cache_dir = str(cache_dir)
+        self._model: TextEmbedding | None = None
 
     def embed_documents(self, texts: Sequence[str]) -> tuple[EmbeddingVector, ...]:
         """Embed source documents in their original order.
@@ -92,7 +89,7 @@ class FastEmbedder:
             raise ValueError("document texts must not be blank")
         return tuple(
             tuple(float(value) for value in vector)
-            for vector in self._model.embed(texts)
+            for vector in self._get_model().embed(texts)
         )
 
     def embed_query(self, query: str) -> EmbeddingVector:
@@ -115,7 +112,23 @@ class FastEmbedder:
         """
         if not query.strip():
             raise ValueError("query must not be blank")
-        vectors = tuple(self._model.query_embed(query))
+        vectors = tuple(self._get_model().query_embed(query))
         if len(vectors) != 1:
             raise ValueError("embedding model must return exactly one query vector")
         return tuple(float(value) for value in vectors[0])
+
+    def _get_model(self) -> TextEmbedding:
+        """Create the ONNX model wrapper only when embedding is requested.
+
+        Returns
+        -------
+        fastembed.TextEmbedding
+            Cached FastEmbed model wrapper.
+        """
+        if self._model is None:
+            self._model = TextEmbedding(
+                model_name=self.model_name,
+                cache_dir=self._cache_dir,
+                lazy_load=True,
+            )
+        return self._model
