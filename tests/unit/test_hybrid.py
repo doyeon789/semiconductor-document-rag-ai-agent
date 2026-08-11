@@ -101,6 +101,19 @@ def test_reciprocal_rank_fusion_is_deterministic_for_ties() -> None:
     assert [hit.chunk.chunk_id.int for hit in fused] == [1, 2]
 
 
+def test_reciprocal_rank_fusion_applies_method_weights() -> None:
+    """Favor the result list assigned the larger retrieval weight."""
+    sparse_first = _make_chunk(2, 2, "정확한 기술 용어")
+    dense_first = _make_chunk(1, 1, "의미상 유사한 설명")
+
+    fused = reciprocal_rank_fusion(
+        ([SearchHit(sparse_first, 2.0)], [SearchHit(dense_first, 0.9)]),
+        weights=(0.75, 0.25),
+    )
+
+    assert fused[0].chunk == sparse_first
+
+
 def test_hybrid_index_requests_candidates_and_limits_output() -> None:
     """Fuse child indexes and return only the requested number of hits."""
     first = _make_chunk(1, 1, "첫 번째")

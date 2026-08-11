@@ -79,6 +79,17 @@ class LocalSearchService:
             return dense_index.search(query, top_k)
         return HybridIndex(self._bm25_index, dense_index).search(query, top_k)
 
+    def prepare(self, mode: SearchMode) -> None:
+        """Prepare one retrieval strategy before latency measurement.
+
+        Parameters
+        ----------
+        mode : SearchMode
+            Retrieval strategy that will be used next.
+        """
+        if mode is not SearchMode.BM25:
+            self._get_dense_index()
+
     def _get_dense_index(self) -> DenseIndex:
         """Build the dense index on first use and reuse it afterward.
 

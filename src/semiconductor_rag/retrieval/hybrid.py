@@ -36,6 +36,7 @@ def reciprocal_rank_fusion(
     result_sets: Sequence[Sequence[SearchHit]],
     top_k: int = 5,
     rank_constant: int = 60,
+    weights: Sequence[float] | None = None,
 ) -> tuple[SearchHit, ...]:
     """Fuse ranked result sets without comparing their raw score scales.
 
@@ -47,6 +48,9 @@ def reciprocal_rank_fusion(
         Maximum number of fused results.
     rank_constant : int, default=60
         Positive RRF rank offset that controls how quickly rank weight decays.
+    weights : collections.abc.Sequence[float] or None, default=None
+        Non-negative weight for each result set. Equal weights are used when
+        omitted.
 
     Returns
     -------
@@ -56,16 +60,25 @@ def reciprocal_rank_fusion(
     Raises
     ------
     ValueError
-        If ``top_k`` or ``rank_constant`` is not positive.
+        If limits or result-set weights are invalid.
     """
     if top_k < 1:
         raise ValueError("top_k must be positive")
     if rank_constant < 1:
         raise ValueError("rank_constant must be positive")
+    fusion_weights = (
+        tuple(weights) if weights is not None else (1.0,) * len(result_sets)
+    )
+    if len(fusion_weights) != len(result_sets):
+        raise ValueError("weights must match the number of result sets")
+    if any(weight < 0 for weight in fusion_weights) or not any(fusion_weights):
+        raise ValueError(
+            "weights must be non-negative with at least one positive value"
+        )
 
     fused_scores: defaultdict[UUID, float] = defaultdict(float)
     chunks_by_id: dict[UUID, Chunk] = {}
-    for hits in result_sets:
+    for hits, weight in zip(result_sets, fusion_weights, strict=True):
         seen_chunk_ids: set[UUID] = set()
         for rank, hit in enumerate(hits, start=1):
             chunk_id = hit.chunk.chunk_id
@@ -73,7 +86,7 @@ def reciprocal_rank_fusion(
                 continue
             seen_chunk_ids.add(chunk_id)
             chunks_by_id.setdefault(chunk_id, hit.chunk)
-            fused_scores[chunk_id] += 1 / (rank_constant + rank)
+            fused_scores[chunk_id] += weight / (rank_constant + rank)
 
     fused_hits = (
         SearchHit(chunk=chunks_by_id[chunk_id], score=score)
@@ -99,6 +112,10 @@ class HybridIndex:
         Candidate count requested from each child index before fusion.
     rank_constant : int, default=60
         Positive RRF rank offset.
+    sparse_weight : float, default=0.75
+        Relative contribution of exact-term rankings.
+    dense_weight : float, default=0.25
+        Relative contribution of semantic rankings.
     """
 
     def __init__(
@@ -107,16 +124,23 @@ class HybridIndex:
         dense_index: SearchIndex,
         candidate_k: int = 20,
         rank_constant: int = 60,
+        sparse_weight: float = 0.75,
+        dense_weight: float = 0.25,
     ) -> None:
         """Store child indexes and validate fusion parameters."""
         if candidate_k < 1:
             raise ValueError("candidate_k must be positive")
         if rank_constant < 1:
             raise ValueError("rank_constant must be positive")
+        if sparse_weight < 0 or dense_weight < 0:
+            raise ValueError("fusion weights must be non-negative")
+        if sparse_weight + dense_weight == 0:
+            raise ValueError("at least one fusion weight must be positive")
         self._sparse_index = sparse_index
         self._dense_index = dense_index
         self._candidate_k = candidate_k
         self._rank_constant = rank_constant
+        self._weights = (sparse_weight, dense_weight)
 
     def search(self, query: str, top_k: int = 5) -> tuple[SearchHit, ...]:
         """Search both child indexes and fuse their rankings.
@@ -150,4 +174,5 @@ class HybridIndex:
             (sparse_hits, dense_hits),
             top_k=top_k,
             rank_constant=self._rank_constant,
+            weights=self._weights,
         )
