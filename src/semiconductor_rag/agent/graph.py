@@ -23,6 +23,8 @@ from semiconductor_rag.answering import (
 )
 from semiconductor_rag.retrieval import SearchMode
 
+MIN_BM25_SCORE_DOMINANCE = 1.5
+
 
 class AgentState(TypedDict):
     """Carry bounded agent state between explicit LangGraph nodes."""
@@ -182,7 +184,7 @@ class RetrievalAgent:
 
     def _assess(self, state: AgentState) -> dict[str, object]:
         """Record whether the latest evidence can support an answer."""
-        sufficient = bool(state["evidence"] and state["evidence"].blocks)
+        sufficient = self._evidence_is_sufficient(state)
         return {
             "trace": self._append_event(
                 state,
@@ -196,7 +198,7 @@ class RetrievalAgent:
         state: AgentState,
     ) -> Literal["generate", "rewrite", "abstain"]:
         """Choose answer, retry, or abstention after evidence assessment."""
-        if state["evidence"] is not None and state["evidence"].blocks:
+        if self._evidence_is_sufficient(state):
             return "generate"
         if state["retrieval_attempts"] < state["max_retrieval_attempts"]:
             return "rewrite"
@@ -303,6 +305,20 @@ class RetrievalAgent:
             and validate_citation(citation, blocks_by_id[citation.evidence_id])
             for citation in answer.citations
         )
+
+    @staticmethod
+    def _evidence_is_sufficient(state: AgentState) -> bool:
+        """Accept precise evidence and retry ambiguous first-stage rankings."""
+        evidence = state["evidence"]
+        if evidence is None or not evidence.blocks:
+            return False
+        if state["next_mode"] is not SearchMode.BM25 or len(evidence.blocks) == 1:
+            return True
+        first_score = evidence.blocks[0].retrieval_score
+        second_score = evidence.blocks[1].retrieval_score
+        if second_score <= 0:
+            return True
+        return first_score / second_score >= MIN_BM25_SCORE_DOMINANCE
 
     @staticmethod
     def _append_event(

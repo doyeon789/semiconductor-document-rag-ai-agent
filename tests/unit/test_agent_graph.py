@@ -84,6 +84,27 @@ def _empty_evidence(query: str) -> EvidencePack:
     return EvidencePack(query=query, blocks=())
 
 
+def _make_ambiguous_evidence(query: str) -> EvidencePack:
+    """Create two close BM25 candidates that require precise reranking."""
+    hits = []
+    for page, text, score in (
+        (9, "산화 조건의 인접 설명", 1.0),
+        (8, "산화 조건의 직접 근거", 0.9),
+    ):
+        chunk = Chunk(
+            chunk_id=UUID(int=page),
+            version_id=VERSION_ID,
+            chunk_type=ChunkType.TEXT,
+            text=text,
+            page_start=page,
+            page_end=page,
+            token_count=len(text.split()),
+            content_hash=sha256(text.encode()).hexdigest(),
+        )
+        hits.append(SearchHit(chunk=chunk, score=score))
+    return build_evidence_pack(query, hits, "doc-1", "공정 안내서")
+
+
 def test_agent_finishes_after_sufficient_first_search() -> None:
     """Use fast BM25 once when its evidence already supports an answer."""
     tools = ScriptedAgentTools(
@@ -124,6 +145,22 @@ def test_agent_rewrites_and_reranks_after_insufficient_search() -> None:
     assert "ALD" in result.search_queries[1]
     assert any(event.name == "query.rewritten" for event in result.trace)
     assert result.termination_reason is AgentTerminationReason.ANSWER_VALIDATED
+
+
+def test_agent_reranks_ambiguous_bm25_evidence() -> None:
+    """Retry when the leading BM25 page is not clearly stronger than second."""
+
+    def search_script(query: str, mode: SearchMode) -> EvidencePack:
+        """Return an ambiguous first stage and precise reranked evidence."""
+        if mode is SearchMode.BM25:
+            return _make_ambiguous_evidence(query)
+        return _make_evidence(query, "산화 조건의 직접 근거", page=8)
+
+    result = RetrievalAgent(ScriptedAgentTools(search_script)).run("산화 조건")
+
+    assert result.retrieval_attempts == 2
+    assert result.search_modes == (SearchMode.BM25, SearchMode.RERANK)
+    assert result.answer.citations[0].page_number == 8
 
 
 def test_agent_abstains_at_retrieval_limit() -> None:
