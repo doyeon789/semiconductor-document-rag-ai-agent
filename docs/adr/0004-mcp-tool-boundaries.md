@@ -1,12 +1,12 @@
 # ADR-0004: MCP Tool Boundaries
 
-- Status: Accepted
+- Status: Superseded by ADR-0006
 - Date: 2026-08-07
 - Decision owners: Project maintainer
 
 ## Context
 
-Agent 내부에 검색, DB 조회, 원문 처리, 인용 검증을 직접 구현하면 각 기능을 독립적으로 평가하기 어렵고 Agent prompt와 infrastructure code가 강하게 결합된다. 프로젝트 목표에는 Function Calling과 MCP 도구 연동이 포함된다.
+Agent 내부에 검색, DB 조회, 원문 처리, 인용 검증을 직접 구현하면 각 기능을 독립적으로 평가하기 어렵고 Agent prompt와 infrastructure code가 강하게 결합된다. 초기 프로젝트 목표에는 Function Calling과 MCP 도구 연동이 포함됐다.
 
 ## Decision
 
@@ -62,4 +62,5 @@ Agent 내부에 검색, DB 조회, 원문 처리, 인용 검증을 직접 구현
 
 - [Agent & MCP Design](../agent-mcp-design.md)
 - [Architecture](../architecture.md)
+- [ADR-0006: In-Process Agent Tools](./0006-in-process-agent-tools.md)
 

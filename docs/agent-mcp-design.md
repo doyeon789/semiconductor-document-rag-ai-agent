@@ -1,15 +1,31 @@
-# Agent & MCP Design
+# Agent & Tool Design
+
+> MVP 결정: Agent는 `Protocol` 기반 in-process typed tool을 사용한다. MCP는 외부 프로세스나 다중 클라이언트가 필요해질 때 추가한다. 결정 근거는 [ADR-0006](./adr/0006-in-process-agent-tools.md)에 기록한다.
 
 ## 1. 역할 구분
 
 - **Agent**: 사용자 목표를 달성하기 위해 어떤 도구를 어떤 순서로 호출할지 결정한다.
 - **LangGraph**: Agent의 상태, 조건부 분기, 재시도, 종료 조건을 구현한다.
-- **MCP**: 검색·원문·인용 기능을 독립 도구로 노출하는 인터페이스다.
+- **Typed tool**: 검색·근거·인용 기능을 Agent와 분리하면서 같은 Python 프로세스에서 호출하는 인터페이스다.
+- **MCP**: typed tool을 외부 프로세스와 클라이언트에 노출할 때 사용할 수 있는 후속 transport다.
 - **Function Calling**: LLM이 정의된 도구 schema에 맞춰 호출을 요청하는 방식이다.
 
-LangGraph가 검색 알고리즘을 구현하지 않고, MCP 서버가 Agent의 상태를 소유하지 않도록 경계를 유지한다.
+LangGraph가 검색 알고리즘을 구현하지 않고, tool 구현이 Agent의 상태를 소유하지 않도록 경계를 유지한다.
 
-## 2. MCP Server Boundaries
+### 1.1 MVP 실행 구조
+
+```mermaid
+flowchart LR
+    A["LangGraph Agent"] --> T["Typed Retrieval Tools"]
+    T --> R["LocalSearchService"]
+    T --> E["Evidence Pack Builder"]
+    T --> C["Citation Validator"]
+    A --> API["FastAPI /v1/agent/answers"]
+```
+
+## 2. Future MCP Server Boundaries
+
+아래 경계는 현재 MVP 구현 범위가 아니라 외부 통합이 필요할 때의 확장 설계다.
 
 ```mermaid
 flowchart LR
@@ -52,7 +68,8 @@ flowchart LR
 
 ## 3. Tool Contract Principles
 
-- 모든 tool input/output은 JSON Schema로 정의한다.
+- 모든 tool input/output은 Python type과 Pydantic model로 정의한다.
+- 외부 MCP adapter를 추가할 때 동일 model에서 JSON Schema를 생성한다.
 - ID와 page number를 문자열 문장에서 추출하지 않는다.
 - 오류를 문자열 한 줄이 아닌 typed error로 반환한다.
 - tool은 사용자에게 보여줄 자연어 최종 답변을 작성하지 않는다.
@@ -296,19 +313,20 @@ Event에는 `trace_id`, node, duration, model/tool version, input/output size, e
 - Citation validation 실패 후 repair
 - max step 도달
 
-## 14. Definition of Done
+## 14. MVP Definition of Done
 
-- [ ] 세 MCP 서버의 tool schema와 contract test가 존재한다.
-- [ ] LangGraph 모든 routing edge에 테스트가 있다.
-- [ ] 재검색과 종료 limit이 설정으로 제어된다.
-- [ ] 답변 보류가 오류가 아닌 정상 응답으로 반환된다.
-- [ ] Claim-Citation validation 실패가 최종 답변에 섞이지 않는다.
-- [ ] trace에서 전체 도구 선택 경로를 재구성할 수 있다.
+- [x] 검색과 답변 기능이 typed in-process tool로 Agent와 분리된다.
+- [x] 첫 검색 성공, 재검색 성공, 보류와 Citation 실패 edge에 테스트가 있다.
+- [x] 재검색 limit이 요청 설정으로 제어된다.
+- [x] 답변 보류가 오류가 아닌 정상 응답으로 반환된다.
+- [x] Claim-Citation validation 실패가 최종 답변에 섞이지 않는다.
+- [x] trace에서 검색어, 검색 모드와 종료 이유를 재구성할 수 있다.
+- [ ] 외부 클라이언트 요구가 생기면 MCP adapter와 contract test를 추가한다.
 
 ## 15. 관련 문서
 
 - [API Contract](./api-contract.md)
 - [Evaluation Plan](./evaluation-plan.md)
-- [ADR-0004](./adr/0004-mcp-tool-boundaries.md)
 - [ADR-0005](./adr/0005-langgraph-orchestration.md)
+- [ADR-0006](./adr/0006-in-process-agent-tools.md)
 

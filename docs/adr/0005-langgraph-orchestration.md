@@ -13,7 +13,8 @@
 - LangGraph로 Agent의 상태와 조건부 전이를 구현한다.
 - 질문 분류, 검색 계획, 검색, 재작성, 원문 수집, 답변 생성, Citation 검증, repair, abstention을 명시적 node로 나눈다.
 - `max_steps`, `max_retrieval_attempts`, `max_tool_errors`, timeout을 설정한다.
-- 검색 알고리즘과 Citation 검증은 Agent node가 아니라 application/MCP 도구에 둔다.
+- 검색 알고리즘과 Citation 검증은 Agent node가 아니라 application tool에 둔다.
+- MVP에서는 [ADR-0006](./0006-in-process-agent-tools.md)에 따라 in-process typed tool을 사용한다.
 - 최종 종료 이유를 enum으로 반환한다.
 
 ## Consequences
@@ -60,6 +61,7 @@
 
 ## Related Documents
 
-- [Agent & MCP Design](../agent-mcp-design.md)
+- [Agent & Tool Design](../agent-mcp-design.md)
 - [Evaluation Plan](../evaluation-plan.md)
+- [ADR-0006: In-Process Agent Tools](./0006-in-process-agent-tools.md)
 

@@ -9,7 +9,7 @@
   → 페이지 기반 검색
   → Hybrid Search 및 Reranking
   → 근거 기반 답변과 인용 검증
-  → LangGraph Agent와 MCP 도구 연동
+  → LangGraph Agent와 typed in-process tool 연동
   → 자동 평가, UI, 배포
 ```
 
@@ -169,9 +169,11 @@ source_path
 - 근거가 없는 질문에 임의로 답변하지 않는다.
 - 잘못된 페이지 인용을 자동 평가할 수 있다.
 
-### Phase 5. LangGraph Agent 및 MCP
+### Phase 5. LangGraph Agent 및 Typed Tools
 
-#### MCP 서버
+MVP에서는 [ADR-0006](./adr/0006-in-process-agent-tools.md)에 따라 내부 typed tool을 사용한다. 아래 MCP 서버 설계는 외부 프로세스나 다중 클라이언트가 필요해질 때의 후속 확장 범위다.
+
+#### 후속 MCP 서버 확장안
 
 - Retrieval MCP Server
   - 검색
@@ -200,7 +202,7 @@ source_path
 
 #### 완료 조건
 
-- 각 MCP 도구를 Agent 없이 독립적으로 테스트할 수 있다.
+- 각 typed tool을 Agent 없이 독립적으로 테스트할 수 있다.
 - 도구 선택과 재검색 조건이 명시적인 상태 전이로 정의되어 있다.
 - 최대 재시도 횟수와 종료 조건이 설정되어 있다.
 - Tool Selection Accuracy와 Retry Success Rate를 평가한다.

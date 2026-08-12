@@ -11,7 +11,7 @@
 5. [Data Model](./data-model.md) — 문서, 페이지, 청크, 표, 인용 데이터 계약
 6. [Ingestion Design](./ingestion-design.md) — PDF·OCR·표 처리 파이프라인
 7. [Retrieval Design](./retrieval-design.md) — Dense, BM25, Hybrid, Reranking
-8. [Agent & MCP Design](./agent-mcp-design.md) — LangGraph 상태와 MCP 도구 계약
+8. [Agent & Tool Design](./agent-mcp-design.md) — LangGraph 상태와 내부 typed tool 계약
 9. [API Contract](./api-contract.md) — 외부 API와 오류 응답
 10. [Evaluation Plan](./evaluation-plan.md) — 평가 데이터와 품질 기준
 11. [Testing Strategy](./testing-strategy.md) — 테스트 계층과 필수 회귀 시나리오
@@ -25,8 +25,9 @@
 | [ADR-0001](./adr/0001-page-centric-evidence-model.md) | 페이지 중심 근거 데이터 모델 |
 | [ADR-0002](./adr/0002-hybrid-retrieval.md) | Qdrant와 OpenSearch를 이용한 Hybrid Retrieval |
 | [ADR-0003](./adr/0003-document-parser-stack.md) | Docling, PyMuPDF, PaddleOCR 역할 분리 |
-| [ADR-0004](./adr/0004-mcp-tool-boundaries.md) | Retrieval, Document, Citation MCP 서버 분리 |
+| [ADR-0004](./adr/0004-mcp-tool-boundaries.md) | MCP 서버 분리안(ADR-0006으로 대체) |
 | [ADR-0005](./adr/0005-langgraph-orchestration.md) | LangGraph 기반 Agent orchestration |
+| [ADR-0006](./adr/0006-in-process-agent-tools.md) | MVP용 in-process typed Agent tool |
 
 ## 문서 우선순위
 
@@ -54,7 +55,8 @@
 | Reranking | 1차 검색 후보의 관련성을 다시 평가하는 과정 |
 | Abstention | 충분한 근거가 없을 때 답변을 보류하는 동작 |
 | Agent | 질문에 따라 도구를 선택하고 재검색 여부를 결정하는 애플리케이션 |
-| MCP Server | 검색·문서·인용 기능을 표준 도구 인터페이스로 제공하는 서버 |
+| Typed Tool | 검색·근거·인용 기능을 Agent와 분리해 같은 프로세스에서 제공하는 인터페이스 |
+| MCP Server | 후속 외부 통합에서 typed tool을 표준 프로토콜로 노출하는 서버 |
 
 ## 문서 관리 규칙
 
