@@ -7,7 +7,12 @@ from uuid import UUID
 import pytest
 
 from semiconductor_rag.domain import Chunk, ChunkType
-from semiconductor_rag.retrieval import SearchHit, rerank_search_hits
+from semiconductor_rag.retrieval import (
+    DEFAULT_RERANKER_MODEL,
+    FastEmbedReranker,
+    SearchHit,
+    rerank_search_hits,
+)
 
 VERSION_ID = UUID("77777777-7777-4777-8777-777777777777")
 
@@ -87,3 +92,10 @@ def test_reranker_rejects_nonpositive_limit() -> None:
     """Reject invalid result limits before model inference."""
     with pytest.raises(ValueError, match="top_k must be positive"):
         rerank_search_hits("query", (), TestReranker(), top_k=0)
+
+
+def test_fastembed_reranker_exposes_version_without_loading_model() -> None:
+    """Record the configured multilingual model before expensive inference."""
+    reranker = FastEmbedReranker()
+
+    assert reranker.model_name == DEFAULT_RERANKER_MODEL

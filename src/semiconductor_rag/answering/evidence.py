@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from semiconductor_rag.retrieval import SearchHit
+from semiconductor_rag.retrieval import SearchHit, tokenize_search_text
 
 
 class EvidenceBlock(BaseModel):
@@ -78,11 +78,14 @@ def build_evidence_pack(
 
     blocks: list[EvidenceBlock] = []
     seen_pages: set[tuple[UUID, int]] = set()
+    query_tokens = set(tokenize_search_text(query))
     for hit in hits:
         if hit.chunk.page_start != hit.chunk.page_end:
             raise ValueError("evidence chunks must remain within one PDF page")
         page_key = (hit.chunk.version_id, hit.chunk.page_start)
         if page_key in seen_pages:
+            continue
+        if query_tokens.isdisjoint(tokenize_search_text(hit.chunk.text)):
             continue
         seen_pages.add(page_key)
         blocks.append(

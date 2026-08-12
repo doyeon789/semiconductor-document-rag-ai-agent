@@ -27,6 +27,7 @@ from semiconductor_rag.ingestion import (
     extract_pdf,
 )
 from semiconductor_rag.retrieval import (
+    DEFAULT_RERANKER_MODEL,
     FastEmbedder,
     FastEmbedReranker,
     LocalSearchService,
@@ -99,6 +100,7 @@ class AnswerRequest(BaseModel):
 
     question: str = Field(min_length=1)
     top_k: int = Field(default=5, ge=1, le=10)
+    max_claims: int = Field(default=1, ge=1, le=3)
 
 
 class AnswerResponse(BaseModel):
@@ -160,7 +162,12 @@ def get_search_service() -> LocalSearchService:
         if page.page.page_number not in DEFAULT_EXCLUDED_CORPUS_PAGES
     )
     chunks = build_page_chunks(searchable_pages, DEFAULT_VERSION_ID)
-    return LocalSearchService(chunks, FastEmbedder(), FastEmbedReranker())
+    reranker_model = os.getenv("RERANKER_MODEL", DEFAULT_RERANKER_MODEL)
+    return LocalSearchService(
+        chunks,
+        FastEmbedder(),
+        FastEmbedReranker(model_name=reranker_model),
+    )
 
 
 async def search_documents(
@@ -242,7 +249,10 @@ async def answer_question(
         document_title=DEFAULT_DOCUMENT_TITLE,
         max_evidence=request.top_k,
     )
-    grounded_answer = build_grounded_answer(evidence_pack)
+    grounded_answer = build_grounded_answer(
+        evidence_pack,
+        max_claims=request.max_claims,
+    )
     latency_ms = (perf_counter() - started_at) * 1_000
     return AnswerResponse(
         request_id=uuid4(),

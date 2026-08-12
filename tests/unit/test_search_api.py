@@ -65,8 +65,8 @@ class ApiTestEmbedder:
             Two-dimensional process vector.
         """
         return (
-            float("산화" in text or "절연" in text),
-            float("패키지" in text or "조립" in text),
+            0.1 + float("산화" in text or "절연" in text),
+            0.1 + float("패키지" in text or "조립" in text),
         )
 
 
@@ -185,8 +185,8 @@ def test_search_endpoint_uses_bm25_by_default() -> None:
     assert body["results"][0]["page_start"] == 8
 
 
-def test_search_endpoint_reranks_bm25_candidates() -> None:
-    """Expose reranked candidates and the cross-encoder model identifier."""
+def test_search_endpoint_reranks_hybrid_candidates() -> None:
+    """Expose reranked hybrid candidates and the cross-encoder identifier."""
     app.dependency_overrides[get_search_service] = _provide_test_search_service
     try:
         response = TestClient(app).post(
@@ -240,6 +240,8 @@ def test_answer_endpoint_returns_verified_page_citation() -> None:
     assert body["abstained"] is False
     assert body["retrieval_mode"] == "rerank"
     assert body["reranker_model"] == "api-test-reranker"
+    assert len(body["claims"]) == 1
+    assert len(body["citations"]) == 1
     assert body["citations"][0]["page_number"] == 8
     assert body["citations"][0]["quote"] in "산화 공정은 절연막을 형성한다."
     assert body["termination_reason"] == "ANSWER_VALIDATED"

@@ -39,7 +39,7 @@ class LocalSearchService:
         chunks: Sequence[Chunk],
         embedder: Embedder,
         reranker: Reranker | None = None,
-        rerank_candidate_k: int = 20,
+        rerank_candidate_k: int = 10,
     ) -> None:
         """Build the lightweight sparse index and retain dense configuration."""
         if rerank_candidate_k < 1:
@@ -100,7 +100,10 @@ class LocalSearchService:
         if mode is SearchMode.RERANK:
             if self._reranker is None:
                 raise ValueError("rerank mode requires a configured reranker")
-            candidates = self._bm25_index.search(
+            candidates = HybridIndex(
+                self._bm25_index,
+                self._get_dense_index(),
+            ).search(
                 query,
                 max(top_k, self._rerank_candidate_k),
             )
@@ -121,6 +124,7 @@ class LocalSearchService:
         if mode is SearchMode.RERANK:
             if self._reranker is None:
                 raise ValueError("rerank mode requires a configured reranker")
+            self._get_dense_index()
             self._reranker.prepare()
         elif mode is not SearchMode.BM25:
             self._get_dense_index()

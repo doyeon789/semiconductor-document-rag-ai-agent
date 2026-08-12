@@ -49,9 +49,9 @@ def _make_hit(number: int, page: int, text: str, score: float) -> SearchHit:
 def test_evidence_pack_keeps_best_hit_per_pdf_page() -> None:
     """Deduplicate pages while preserving rank and source traceability."""
     hits = (
-        _make_hit(1, 12, "첫 번째 근거", 0.9),
-        _make_hit(2, 12, "같은 페이지의 낮은 순위 근거", 0.8),
-        _make_hit(3, 15, "두 번째 페이지 근거", 0.7),
+        _make_hit(1, 12, "공정 조건의 첫 번째 근거", 0.9),
+        _make_hit(2, 12, "공정 조건과 같은 페이지의 낮은 순위 근거", 0.8),
+        _make_hit(3, 15, "공정 조건의 두 번째 페이지 근거", 0.7),
     )
 
     pack = build_evidence_pack(
@@ -74,7 +74,7 @@ def test_evidence_pack_limits_context_size() -> None:
         for number in range(1, 4)
     )
 
-    pack = build_evidence_pack("query", hits, "doc", "title", max_evidence=2)
+    pack = build_evidence_pack("page", hits, "doc", "title", max_evidence=2)
 
     assert len(pack.blocks) == 2
 
@@ -83,3 +83,12 @@ def test_evidence_pack_rejects_nonpositive_limit() -> None:
     """Reject an evidence budget that cannot retain any source."""
     with pytest.raises(ValueError, match="max_evidence must be positive"):
         build_evidence_pack("query", (), "doc", "title", max_evidence=0)
+
+
+def test_evidence_pack_drops_candidates_without_query_overlap() -> None:
+    """Exclude semantically weak candidates from answer evidence by default."""
+    hits = (_make_hit(1, 8, "산화 공정 설명", 0.1),)
+
+    pack = build_evidence_pack("초전도 큐비트", hits, "doc", "title")
+
+    assert pack.blocks == ()
