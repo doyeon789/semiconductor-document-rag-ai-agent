@@ -5,23 +5,23 @@
 ### From complex semiconductor documents to page-grounded answers
 
 반도체 PDF, 공정 문서, 장비 매뉴얼, 논문을 검색하고<br>
-여러 문서의 내용을 비교·분석하여 **페이지 단위 근거와 함께 답변하는 MCP 기반 문서 분석 Agent**
+문서 내용을 검색·분석하여 **페이지 단위 근거와 함께 답변하는 Agentic RAG**
 
 ![Status](https://img.shields.io/badge/Status-Planning%20%26%20Design-F59E0B)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![Architecture](https://img.shields.io/badge/Architecture-Agentic%20RAG-2563EB)
 ![Orchestration](https://img.shields.io/badge/Orchestration-LangGraph-1C3C3C)
-![Tool Interface](https://img.shields.io/badge/Tool%20Interface-MCP-7C3AED)
+![Tool Interface](https://img.shields.io/badge/Tool%20Interface-Typed%20Tools-7C3AED)
 ![License](https://img.shields.io/badge/License-MIT-22C55E)
 
 </div>
 
 > [!NOTE]
-> 현재 프로젝트는 **요구사항 및 아키텍처 설계 단계**입니다. 아래 기술 스택과 구조는 목표 설계이며, 구현 진행 상황은 [Roadmap](#roadmap)에 계속 반영합니다.
+> 현재 프로젝트는 **Agentic RAG 핵심 기능 구현 단계**입니다. 구현 진행 상황과 후속 범위는 [Roadmap](#roadmap)에 계속 반영합니다.
 
 ## Documentation
 
-구현 기준과 세부 설계는 [docs/README.md](./docs/README.md)에서 확인할 수 있습니다. 요구사항, 데이터 모델, PDF 처리, Hybrid Retrieval, Agent·MCP, API, 평가, 테스트, 운영 및 ADR을 문서별로 관리합니다.
+구현 기준과 세부 설계는 [docs/README.md](./docs/README.md)에서 확인할 수 있습니다. 요구사항, 데이터 모델, PDF 처리, Hybrid Retrieval, Agent·도구, API, 평가, 테스트, 운영 및 ADR을 문서별로 관리합니다.
 
 ## Overview
 
@@ -45,7 +45,7 @@
 | Grounded Answer | 문서명·페이지 기반 인용, 주장과 근거 연결, 원문 확인 경로 제공 |
 | Abstention | 근거가 부족하거나 서로 충돌하면 답변을 보류하고 추가 검색 수행 |
 | Agentic Retrieval | LangGraph 기반 도구 선택, 조건부 분기, 재검색 및 답변 검증 |
-| Tool Integration | Function Calling 및 MCP 서버를 통한 검색·문서·인용 도구 연동 |
+| Tool Integration | Protocol 기반 내부 도구를 통한 검색·Evidence·Citation 기능 연동 |
 | Evaluation | 검색 정확도, 답변 충실성, 인용 정확도, Agent 도구 선택 품질 평가 |
 
 ## Example Use Cases
@@ -61,11 +61,9 @@
 flowchart LR
     U["User / Streamlit UI"] --> API["FastAPI Gateway"]
     API --> AGENT["LangGraph Agent"]
-    AGENT --> LLM["LLM + Function Calling"]
-
-    AGENT -->|MCP| RET["Retrieval MCP Server"]
-    AGENT -->|MCP| DOC["Document MCP Server"]
-    AGENT -->|MCP| CITE["Citation MCP Server"]
+    AGENT --> RET["Typed Retrieval Tools"]
+    AGENT --> DOC["Evidence Pack Builder"]
+    AGENT --> CITE["Citation Validator"]
 
     RET --> VS["Qdrant<br/>Dense Vector"]
     RET --> KS["OpenSearch<br/>BM25 Keyword"]
@@ -104,7 +102,7 @@ flowchart LR
 | Language & Runtime | Python 3.11+, uv | 애플리케이션 개발 및 재현 가능한 의존성 관리 |
 | API & Schema | FastAPI, Pydantic | 검색·Agent API와 입출력 스키마 정의 |
 | Agent Orchestration | LangGraph, LangChain | 상태 기반 워크플로, 조건부 재검색, 도구 실행 |
-| Tool Protocol | MCP Python SDK, Function Calling | 검색·문서·인용 기능을 독립 도구로 제공 |
+| Tool Interface | Python Protocol, Pydantic | 검색·근거·인용 기능을 독립적으로 테스트 가능한 내부 도구로 제공 |
 | PDF & OCR | Docling, PyMuPDF, PaddleOCR | PDF 레이아웃, 페이지, 표, 스캔 문서 처리 |
 | Embedding | Sentence Transformers | 한영 기술 문서용 Dense Embedding |
 | Vector Search | Qdrant | Dense Vector 인덱싱 및 유사도 검색 |
@@ -121,7 +119,7 @@ flowchart LR
 ### Why This Stack?
 
 - **LangGraph** — 검색 성공 여부와 근거 충분성에 따라 재검색·답변 보류 경로를 명시적으로 제어합니다.
-- **MCP** — 문서 검색, 원문 조회, 인용 검증을 독립 서버로 분리해 도구 경계를 명확히 하고 재사용성을 높입니다.
+- **Typed Tools** — 문서 검색, Evidence 구성, 인용 검증을 Agent node와 분리하면서 단일 프로세스 MVP의 복잡성을 낮춥니다.
 - **Qdrant + OpenSearch** — 의미가 비슷한 문장을 찾는 Dense Search와 정확한 약어·수치·장비 코드를 찾는 BM25의 장점을 결합합니다.
 - **페이지 중심 메타데이터** — `document_id`, `page_number`, `section`, `bbox`를 청크와 함께 보존해 답변에서 원문 페이지까지 추적합니다.
 - **Reranker + Citation Validator** — 검색 결과의 관련성과 최종 답변의 근거 정합성을 서로 다른 단계에서 검증합니다.
@@ -164,8 +162,8 @@ flowchart LR
 4. 다중 문서 비교
 5. Agent 도구 선택과 재검색
 6. 인용 검증
-7. MCP 서버 분리
-8. 자동 평가와 운영 안정성
+7. 자동 평가와 오류 분석
+8. 운영 안정성
 9. UI 및 배포
 10. 공정 데이터 분석 확장
 

@@ -163,31 +163,31 @@ data/eval/questions.jsonl
 - [ ] Citation quote가 해당 PDF 페이지에서 검증된다.
 - [ ] 검색·Citation MVP Gate의 현재 값과 부족한 항목이 기록된다.
 
-### Day 5 — MCP Tool Servers
+### Day 5 — Minimal Agentic RAG
 
 #### 읽을 문서
 
-- [Agent & MCP Design](./agent-mcp-design.md)
-- [ADR-0004](./adr/0004-mcp-tool-boundaries.md)
+- [Agent & Tool Design](./agent-mcp-design.md)
+- [ADR-0005](./adr/0005-langgraph-orchestration.md)
+- [ADR-0006](./adr/0006-in-process-agent-tools.md)
 
 #### 작업
 
-- [ ] Retrieval MCP Server와 tool schema를 구현한다.
-- [ ] Document MCP Server와 tool schema를 구현한다.
-- [ ] Citation MCP Server와 tool schema를 구현한다.
-- [ ] MCP handler가 application use case를 재사용하게 한다.
-- [ ] 모든 tool에 typed error와 trace ID를 적용한다.
-- [ ] tool별 timeout과 health check를 구현한다.
-- [ ] schema snapshot과 contract test를 작성한다.
-- [ ] Agent 없이 MCP client smoke test를 실행한다.
+- [x] LangGraph `AgentState`와 조건부 routing을 구현한다.
+- [x] 검색과 답변 기능을 typed in-process tool로 연결한다.
+- [x] 첫 검색에는 BM25, 재검색에는 Query Rewrite와 Reranker를 적용한다.
+- [x] 최대 검색 횟수와 종료 이유를 적용한다.
+- [x] Citation 검증 실패를 최종 답변에서 차단한다.
+- [x] `/v1/agent/answers`와 재구성 가능한 trace를 제공한다.
+- [x] 첫 검색 성공, 재검색 성공, 보류, Citation 실패 경로를 테스트한다.
 
 #### Day 5 Gate
 
-- [ ] 모든 MCP tool을 독립적으로 호출할 수 있다.
-- [ ] REST와 MCP가 동일 데이터 계약을 사용한다.
-- [ ] 잘못된 input이 schema error로 반환된다.
-- [ ] stale page/version Citation이 거부된다.
-- [ ] 한 서버 장애가 구조화된 오류로 관측된다.
+- [x] Agent가 검색 결과에 따라 답변, 재검색 또는 보류를 선택한다.
+- [x] 무한 재검색이 최대 횟수로 차단된다.
+- [x] 잘못된 input이 schema error로 반환된다.
+- [x] 원문과 다른 Citation이 최종 답변에서 제거된다.
+- [x] trace로 검색어, 검색 모드와 종료 이유를 재구성할 수 있다.
 
 ### Day 6 — LangGraph Agent
 
