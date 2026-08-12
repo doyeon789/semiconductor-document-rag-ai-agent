@@ -284,6 +284,79 @@ HTTP status는 정상적인 제품 동작이므로 `200 OK`를 사용한다.
 }
 ```
 
+### `POST /v1/agent/answers`
+
+LangGraph가 검색 결과에 따라 답변, 재검색 또는 보류를 선택한다. 첫 검색은 BM25를 사용하고, 근거가 없거나 상위 결과가 애매하면 반도체 용어를 확장한 뒤 Reranker로 한 번 더 검색한다.
+
+Request:
+
+```json
+{
+  "question": "건식 산화와 습식 산화의 선택 기준은?",
+  "top_k": 5,
+  "max_claims": 1,
+  "max_retrieval_attempts": 2
+}
+```
+
+Response의 `answer`는 기존 Grounded Answer 계약을 재사용하고 Agent trajectory를 함께 반환한다.
+
+```json
+{
+  "trace_id": "7c880132-f334-4f2e-bd4f-d069bf54a1df",
+  "question": "건식 산화와 습식 산화의 선택 기준은?",
+  "answer": {
+    "answer": "- 습식 산화는 ... (반도체 8대 제조 공정, p.8)",
+    "abstained": false,
+    "abstention_reason": null,
+    "claims": [
+      {
+        "claim_id": "11111111-1111-4111-8111-111111111111",
+        "text": "습식 산화는 빠른 성장 속도에 적합하다.",
+        "citation_ids": ["22222222-2222-4222-8222-222222222222"],
+        "inference": false
+      }
+    ],
+    "citations": [
+      {
+        "citation_id": "22222222-2222-4222-8222-222222222222",
+        "claim_id": "11111111-1111-4111-8111-111111111111",
+        "evidence_id": "E1",
+        "chunk_id": "33333333-3333-4333-8333-333333333333",
+        "document_id": "SEMI-8P-RAG-KO",
+        "document_title": "반도체 8대 제조 공정",
+        "version_id": "44444444-4444-4444-8444-444444444444",
+        "page_number": 8,
+        "quote": "습식 산화는 빠른 성장 속도에 적합하다.",
+        "support": "supports",
+        "validation_score": 1.0
+      }
+    ],
+    "evidence_count": 5,
+    "sufficiency": "SUFFICIENT",
+    "termination_reason": "ANSWER_VALIDATED"
+  },
+  "retrieval_attempts": 2,
+  "search_queries": [
+    "건식 산화와 습식 산화의 선택 기준은?",
+    "건식 산화와 습식 산화의 선택 기준은?"
+  ],
+  "search_modes": ["bm25", "rerank"],
+  "termination_reason": "ANSWER_VALIDATED",
+  "trace": [
+    {
+      "sequence": 1,
+      "name": "tool.search.completed",
+      "query": "건식 산화와 습식 산화의 선택 기준은?",
+      "mode": "bm25",
+      "detail": "evidence_count=5"
+    }
+  ]
+}
+```
+
+정상적인 답변 보류도 `200 OK`를 사용한다. `termination_reason`은 `ANSWER_VALIDATED`, `RETRIEVAL_LIMIT_REACHED`, `ANSWER_VALIDATION_FAILED` 중 하나다.
+
 ## 8. Evaluations
 
 ### `POST /v1/evaluations/runs`
