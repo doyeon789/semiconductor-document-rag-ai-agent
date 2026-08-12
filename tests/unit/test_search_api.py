@@ -222,3 +222,44 @@ def test_search_endpoint_rejects_unknown_modes_and_limits() -> None:
 
     assert unknown_mode.status_code == 422
     assert excessive_limit.status_code == 422
+
+
+def test_answer_endpoint_returns_verified_page_citation() -> None:
+    """Return an extractive answer whose quote exists on the cited page."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/answers",
+            json={"question": "산화 공정", "top_k": 2},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["abstained"] is False
+    assert body["retrieval_mode"] == "rerank"
+    assert body["reranker_model"] == "api-test-reranker"
+    assert body["citations"][0]["page_number"] == 8
+    assert body["citations"][0]["quote"] in "산화 공정은 절연막을 형성한다."
+    assert body["termination_reason"] == "ANSWER_VALIDATED"
+
+
+def test_answer_endpoint_abstains_when_search_finds_no_evidence() -> None:
+    """Return HTTP 200 with no claims when the local PDF has no evidence."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/answers",
+            json={"question": "초전도 큐비트"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["abstained"] is True
+    assert body["answer"] is None
+    assert body["claims"] == []
+    assert body["citations"] == []
+    assert body["abstention_reason"]["code"] == "EVIDENCE_INSUFFICIENT"
