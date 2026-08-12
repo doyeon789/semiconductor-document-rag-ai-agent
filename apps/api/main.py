@@ -12,6 +12,11 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from semiconductor_rag.agent import (
+    AgentRun,
+    LocalRetrievalAgentTools,
+    RetrievalAgent,
+)
 from semiconductor_rag.answering import (
     AbstentionReason,
     EvidenceSufficiency,
@@ -123,6 +128,17 @@ class AnswerResponse(BaseModel):
     latency_ms: float = Field(ge=0)
 
 
+class AgentAnswerRequest(BaseModel):
+    """Validate one bounded Agentic RAG request."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    question: str = Field(min_length=1)
+    top_k: int = Field(default=5, ge=1, le=10)
+    max_claims: int = Field(default=1, ge=1, le=3)
+    max_retrieval_attempts: int = Field(default=2, ge=1, le=3)
+
+
 async def get_live_health() -> LiveHealthResponse:
     """Return the API process liveness state.
 
@@ -168,6 +184,29 @@ def get_search_service() -> LocalSearchService:
         FastEmbedder(),
         FastEmbedReranker(model_name=reranker_model),
     )
+
+
+def get_retrieval_agent(
+    search_service: Annotated[LocalSearchService, Depends(get_search_service)],
+) -> RetrievalAgent:
+    """Build one Agent graph around cached in-process application tools.
+
+    Parameters
+    ----------
+    search_service : LocalSearchService
+        Cached local retrieval service supplied by FastAPI.
+
+    Returns
+    -------
+    RetrievalAgent
+        Bounded LangGraph agent using local typed tools without MCP transport.
+    """
+    tools = LocalRetrievalAgentTools(
+        search_service,
+        document_id=DEFAULT_DOCUMENT_ID,
+        document_title=DEFAULT_DOCUMENT_TITLE,
+    )
+    return RetrievalAgent(tools)
 
 
 async def search_documents(
@@ -270,6 +309,32 @@ async def answer_question(
     )
 
 
+async def answer_with_agent(
+    request: AgentAnswerRequest,
+    agent: Annotated[RetrievalAgent, Depends(get_retrieval_agent)],
+) -> AgentRun:
+    """Run bounded search, rewrite, rerank, validation, and abstention.
+
+    Parameters
+    ----------
+    request : AgentAnswerRequest
+        Validated question and hard execution limits.
+    agent : RetrievalAgent
+        Dependency-injected LangGraph retrieval agent.
+
+    Returns
+    -------
+    AgentRun
+        Grounded answer and reconstructable tool trajectory.
+    """
+    return agent.run(
+        request.question,
+        top_k=request.top_k,
+        max_claims=request.max_claims,
+        max_retrieval_attempts=request.max_retrieval_attempts,
+    )
+
+
 def create_app() -> FastAPI:
     """Build the FastAPI application.
 
@@ -302,6 +367,13 @@ def create_app() -> FastAPI:
         methods=["POST"],
         response_model=AnswerResponse,
         tags=["answers"],
+    )
+    application.add_api_route(
+        "/v1/agent/answers",
+        answer_with_agent,
+        methods=["POST"],
+        response_model=AgentRun,
+        tags=["agent"],
     )
     return application
 
