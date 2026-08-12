@@ -17,7 +17,12 @@ from semiconductor_rag.ingestion import (
     build_page_chunks,
     extract_pdf,
 )
-from semiconductor_rag.retrieval import FastEmbedder, LocalSearchService, SearchMode
+from semiconductor_rag.retrieval import (
+    FastEmbedder,
+    FastEmbedReranker,
+    LocalSearchService,
+    SearchMode,
+)
 
 DEFAULT_DOCUMENT_ID = "SEMI-8P-RAG-KO"
 DEFAULT_DOCUMENT_VERSION = "1.3"
@@ -72,6 +77,7 @@ class SearchResponse(BaseModel):
     document_id: str
     mode: SearchMode
     embedding_model: str | None
+    reranker_model: str | None
     results: list[SearchResultResponse]
     latency_ms: float = Field(ge=0)
 
@@ -115,7 +121,7 @@ def get_search_service() -> LocalSearchService:
         if page.page.page_number not in DEFAULT_EXCLUDED_CORPUS_PAGES
     )
     chunks = build_page_chunks(searchable_pages, DEFAULT_VERSION_ID)
-    return LocalSearchService(chunks, FastEmbedder())
+    return LocalSearchService(chunks, FastEmbedder(), FastEmbedReranker())
 
 
 async def search_documents(
@@ -142,11 +148,18 @@ async def search_documents(
     embedding_model = (
         None if request.mode is SearchMode.BM25 else search_service.embedding_model_name
     )
+    if request.mode is SearchMode.RERANK:
+        embedding_model = None
     return SearchResponse(
         query_id=uuid4(),
         document_id=DEFAULT_DOCUMENT_ID,
         mode=request.mode,
         embedding_model=embedding_model,
+        reranker_model=(
+            search_service.reranker_model_name
+            if request.mode is SearchMode.RERANK
+            else None
+        ),
         results=[
             SearchResultResponse(
                 rank=rank,
