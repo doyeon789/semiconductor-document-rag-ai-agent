@@ -65,9 +65,35 @@ class ApiTestEmbedder:
             Two-dimensional process vector.
         """
         return (
-            float("산화" in text or "절연" in text),
-            float("패키지" in text or "조립" in text),
+            0.1 + float("산화" in text or "절연" in text),
+            0.1 + float("패키지" in text or "조립" in text),
         )
+
+
+class ApiTestReranker:
+    """Promote candidates that contain the question's answer term."""
+
+    model_name = "api-test-reranker"
+
+    def prepare(self) -> None:
+        """Provide a no-op preparation hook for API tests."""
+
+    def score(self, query: str, documents: Sequence[str]) -> tuple[float, ...]:
+        """Score oxidation evidence above unrelated candidates.
+
+        Parameters
+        ----------
+        query : str
+            Ignored test query.
+        documents : collections.abc.Sequence[str]
+            Candidate texts.
+
+        Returns
+        -------
+        tuple[float, ...]
+            Stable relevance scores.
+        """
+        return tuple(0.9 if "산화" in document else 0.1 for document in documents)
 
 
 def _make_chunk(number: int, page: int, text: str) -> Chunk:
@@ -113,6 +139,7 @@ def _provide_test_search_service() -> LocalSearchService:
             _make_chunk(2, 31, "패키지 공정은 다이를 조립한다."),
         ],
         ApiTestEmbedder(),
+        ApiTestReranker(),
     )
 
 
@@ -131,6 +158,7 @@ def test_search_endpoint_returns_ranked_page_traceability() -> None:
     body = response.json()
     assert body["mode"] == "hybrid"
     assert body["embedding_model"] == "api-test-embedding"
+    assert body["reranker_model"] is None
     assert body["results"][0]["rank"] == 1
     assert body["results"][0]["page_start"] == 8
     assert body["results"][0]["page_end"] == 8
@@ -153,6 +181,26 @@ def test_search_endpoint_uses_bm25_by_default() -> None:
     body = response.json()
     assert body["mode"] == "bm25"
     assert body["embedding_model"] is None
+    assert body["reranker_model"] is None
+    assert body["results"][0]["page_start"] == 8
+
+
+def test_search_endpoint_reranks_hybrid_candidates() -> None:
+    """Expose reranked hybrid candidates and the cross-encoder identifier."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/search",
+            json={"query": "공정", "mode": "rerank", "top_k": 1},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "rerank"
+    assert body["embedding_model"] is None
+    assert body["reranker_model"] == "api-test-reranker"
     assert body["results"][0]["page_start"] == 8
 
 
@@ -174,3 +222,46 @@ def test_search_endpoint_rejects_unknown_modes_and_limits() -> None:
 
     assert unknown_mode.status_code == 422
     assert excessive_limit.status_code == 422
+
+
+def test_answer_endpoint_returns_verified_page_citation() -> None:
+    """Return an extractive answer whose quote exists on the cited page."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/answers",
+            json={"question": "산화 공정", "top_k": 2},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["abstained"] is False
+    assert body["retrieval_mode"] == "rerank"
+    assert body["reranker_model"] == "api-test-reranker"
+    assert len(body["claims"]) == 1
+    assert len(body["citations"]) == 1
+    assert body["citations"][0]["page_number"] == 8
+    assert body["citations"][0]["quote"] in "산화 공정은 절연막을 형성한다."
+    assert body["termination_reason"] == "ANSWER_VALIDATED"
+
+
+def test_answer_endpoint_abstains_when_search_finds_no_evidence() -> None:
+    """Return HTTP 200 with no claims when the local PDF has no evidence."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/answers",
+            json={"question": "초전도 큐비트"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["abstained"] is True
+    assert body["answer"] is None
+    assert body["claims"] == []
+    assert body["citations"] == []
+    assert body["abstention_reason"]["code"] == "EVIDENCE_INSUFFICIENT"

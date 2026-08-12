@@ -11,6 +11,7 @@ from semiconductor_rag.retrieval.dense import DenseIndex
 from semiconductor_rag.retrieval.embedding import Embedder
 from semiconductor_rag.retrieval.hybrid import HybridIndex
 from semiconductor_rag.retrieval.models import SearchHit
+from semiconductor_rag.retrieval.reranking import Reranker, rerank_search_hits
 
 
 class SearchMode(StrEnum):
@@ -19,6 +20,7 @@ class SearchMode(StrEnum):
     BM25 = "bm25"
     DENSE = "dense"
     HYBRID = "hybrid"
+    RERANK = "rerank"
 
 
 class LocalSearchService:
@@ -32,10 +34,20 @@ class LocalSearchService:
         Dense model adapter. Its document index is created only when needed.
     """
 
-    def __init__(self, chunks: Sequence[Chunk], embedder: Embedder) -> None:
+    def __init__(
+        self,
+        chunks: Sequence[Chunk],
+        embedder: Embedder,
+        reranker: Reranker | None = None,
+        rerank_candidate_k: int = 10,
+    ) -> None:
         """Build the lightweight sparse index and retain dense configuration."""
+        if rerank_candidate_k < 1:
+            raise ValueError("rerank_candidate_k must be positive")
         self._chunks = tuple(chunks)
         self._embedder = embedder
+        self._reranker = reranker
+        self._rerank_candidate_k = rerank_candidate_k
         self._bm25_index = BM25Index(self._chunks)
         self._dense_index: DenseIndex | None = None
 
@@ -49,6 +61,17 @@ class LocalSearchService:
             Embedding model name without forcing model inference.
         """
         return self._embedder.model_name
+
+    @property
+    def reranker_model_name(self) -> str | None:
+        """Return the configured reranker model identifier when available.
+
+        Returns
+        -------
+        str or None
+            Reranker model name, or ``None`` when reranking is not configured.
+        """
+        return None if self._reranker is None else self._reranker.model_name
 
     def search(
         self,
@@ -74,6 +97,17 @@ class LocalSearchService:
         """
         if mode is SearchMode.BM25:
             return self._bm25_index.search(query, top_k)
+        if mode is SearchMode.RERANK:
+            if self._reranker is None:
+                raise ValueError("rerank mode requires a configured reranker")
+            candidates = HybridIndex(
+                self._bm25_index,
+                self._get_dense_index(),
+            ).search(
+                query,
+                max(top_k, self._rerank_candidate_k),
+            )
+            return rerank_search_hits(query, candidates, self._reranker, top_k)
         dense_index = self._get_dense_index()
         if mode is SearchMode.DENSE:
             return dense_index.search(query, top_k)
@@ -87,7 +121,12 @@ class LocalSearchService:
         mode : SearchMode
             Retrieval strategy that will be used next.
         """
-        if mode is not SearchMode.BM25:
+        if mode is SearchMode.RERANK:
+            if self._reranker is None:
+                raise ValueError("rerank mode requires a configured reranker")
+            self._get_dense_index()
+            self._reranker.prepare()
+        elif mode is not SearchMode.BM25:
             self._get_dense_index()
 
     def _get_dense_index(self) -> DenseIndex:

@@ -136,3 +136,22 @@ def test_evaluate_retrieval_calculates_page_hit_and_mrr() -> None:
     assert result.mrr == pytest.approx(0.5)
     assert result.case_count == 3
     assert result.p95_latency_ms >= result.mean_latency_ms
+
+
+def test_evaluate_retrieval_accepts_reranked_mode() -> None:
+    """Record reranked retrieval as a separately comparable evaluation run."""
+    service = EvaluationTestService()
+    cases = [
+        RetrievalCase(
+            id="Q1",
+            query="first",
+            expected_evidence_ids=["A"],
+            expected_pages=[3],
+        )
+    ]
+
+    result = evaluate_retrieval(service, cases, SearchMode.RERANK, top_k=2)
+
+    assert service.prepared_mode is SearchMode.RERANK
+    assert result.mode is SearchMode.RERANK
+    assert result.page_hit_at_k == 1.0

@@ -12,15 +12,31 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from semiconductor_rag.answering import (
+    AbstentionReason,
+    EvidenceSufficiency,
+    GroundedCitation,
+    GroundedClaim,
+    TerminationReason,
+    build_evidence_pack,
+    build_grounded_answer,
+)
 from semiconductor_rag.ingestion import (
     PdfExtractionError,
     build_page_chunks,
     extract_pdf,
 )
-from semiconductor_rag.retrieval import FastEmbedder, LocalSearchService, SearchMode
+from semiconductor_rag.retrieval import (
+    DEFAULT_RERANKER_MODEL,
+    FastEmbedder,
+    FastEmbedReranker,
+    LocalSearchService,
+    SearchMode,
+)
 
 DEFAULT_DOCUMENT_ID = "SEMI-8P-RAG-KO"
 DEFAULT_DOCUMENT_VERSION = "1.3"
+DEFAULT_DOCUMENT_TITLE = "반도체 8대 제조 공정: 웨이퍼에서 패키징까지"
 DEFAULT_EXCLUDED_CORPUS_PAGES = frozenset({65})
 DEFAULT_PDF_PATH = Path(
     "output/pdf/semiconductor_8_processes_chunking_guide_ko_v1_3.pdf"
@@ -72,7 +88,38 @@ class SearchResponse(BaseModel):
     document_id: str
     mode: SearchMode
     embedding_model: str | None
+    reranker_model: str | None
     results: list[SearchResultResponse]
+    latency_ms: float = Field(ge=0)
+
+
+class AnswerRequest(BaseModel):
+    """Validate one page-grounded answer request."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    question: str = Field(min_length=1)
+    top_k: int = Field(default=5, ge=1, le=10)
+    max_claims: int = Field(default=1, ge=1, le=3)
+
+
+class AnswerResponse(BaseModel):
+    """Return a verified extractive answer or evidence abstention."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: UUID
+    question: str
+    answer: str | None
+    abstained: bool
+    abstention_reason: AbstentionReason | None
+    claims: tuple[GroundedClaim, ...]
+    citations: tuple[GroundedCitation, ...]
+    evidence_count: int = Field(ge=0)
+    sufficiency: EvidenceSufficiency
+    termination_reason: TerminationReason
+    retrieval_mode: Literal[SearchMode.RERANK] = SearchMode.RERANK
+    reranker_model: str | None
     latency_ms: float = Field(ge=0)
 
 
@@ -115,7 +162,12 @@ def get_search_service() -> LocalSearchService:
         if page.page.page_number not in DEFAULT_EXCLUDED_CORPUS_PAGES
     )
     chunks = build_page_chunks(searchable_pages, DEFAULT_VERSION_ID)
-    return LocalSearchService(chunks, FastEmbedder())
+    reranker_model = os.getenv("RERANKER_MODEL", DEFAULT_RERANKER_MODEL)
+    return LocalSearchService(
+        chunks,
+        FastEmbedder(),
+        FastEmbedReranker(model_name=reranker_model),
+    )
 
 
 async def search_documents(
@@ -142,11 +194,18 @@ async def search_documents(
     embedding_model = (
         None if request.mode is SearchMode.BM25 else search_service.embedding_model_name
     )
+    if request.mode is SearchMode.RERANK:
+        embedding_model = None
     return SearchResponse(
         query_id=uuid4(),
         document_id=DEFAULT_DOCUMENT_ID,
         mode=request.mode,
         embedding_model=embedding_model,
+        reranker_model=(
+            search_service.reranker_model_name
+            if request.mode is SearchMode.RERANK
+            else None
+        ),
         results=[
             SearchResultResponse(
                 rank=rank,
@@ -159,6 +218,54 @@ async def search_documents(
             )
             for rank, hit in enumerate(hits, start=1)
         ],
+        latency_ms=latency_ms,
+    )
+
+
+async def answer_question(
+    request: AnswerRequest,
+    search_service: Annotated[LocalSearchService, Depends(get_search_service)],
+) -> AnswerResponse:
+    """Answer from reranked PDF evidence and verify every source quote.
+
+    Parameters
+    ----------
+    request : AnswerRequest
+        Validated question and evidence limit.
+    search_service : LocalSearchService
+        Cached local retrieval and reranking service.
+
+    Returns
+    -------
+    AnswerResponse
+        Extractive answer with page citations, or a normal abstention response.
+    """
+    started_at = perf_counter()
+    hits = search_service.search(request.question, SearchMode.RERANK, request.top_k)
+    evidence_pack = build_evidence_pack(
+        request.question,
+        hits,
+        document_id=DEFAULT_DOCUMENT_ID,
+        document_title=DEFAULT_DOCUMENT_TITLE,
+        max_evidence=request.top_k,
+    )
+    grounded_answer = build_grounded_answer(
+        evidence_pack,
+        max_claims=request.max_claims,
+    )
+    latency_ms = (perf_counter() - started_at) * 1_000
+    return AnswerResponse(
+        request_id=uuid4(),
+        question=request.question,
+        answer=grounded_answer.answer,
+        abstained=grounded_answer.abstained,
+        abstention_reason=grounded_answer.abstention_reason,
+        claims=grounded_answer.claims,
+        citations=grounded_answer.citations,
+        evidence_count=grounded_answer.evidence_count,
+        sufficiency=grounded_answer.sufficiency,
+        termination_reason=grounded_answer.termination_reason,
+        reranker_model=search_service.reranker_model_name,
         latency_ms=latency_ms,
     )
 
@@ -188,6 +295,13 @@ def create_app() -> FastAPI:
         methods=["POST"],
         response_model=SearchResponse,
         tags=["search"],
+    )
+    application.add_api_route(
+        "/v1/answers",
+        answer_question,
+        methods=["POST"],
+        response_model=AnswerResponse,
+        tags=["answers"],
     )
     return application
 
