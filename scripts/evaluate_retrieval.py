@@ -9,7 +9,12 @@ from uuid import NAMESPACE_URL, uuid5
 
 from semiconductor_rag.evaluation import evaluate_retrieval, load_retrieval_dataset
 from semiconductor_rag.ingestion import build_page_chunks, extract_pdf
-from semiconductor_rag.retrieval import FastEmbedder, LocalSearchService, SearchMode
+from semiconductor_rag.retrieval import (
+    FastEmbedder,
+    FastEmbedReranker,
+    LocalSearchService,
+    SearchMode,
+)
 
 DEFAULT_PDF_PATH = Path(
     "output/pdf/semiconductor_8_processes_chunking_guide_ko_v1_3.pdf"
@@ -48,7 +53,11 @@ def main() -> None:
         page for page in pages if page.page.page_number not in excluded_pages
     )
     chunks = build_page_chunks(searchable_pages, version_id)
-    search_service = LocalSearchService(chunks, FastEmbedder())
+    search_service = LocalSearchService(
+        chunks,
+        FastEmbedder(),
+        FastEmbedReranker(),
+    )
     evaluations = [
         evaluate_retrieval(search_service, dataset.cases, mode, args.top_k)
         for mode in SearchMode
@@ -60,6 +69,7 @@ def main() -> None:
         "chunk_count": len(chunks),
         "excluded_corpus_pages": dataset.excluded_corpus_pages,
         "embedding_model": search_service.embedding_model_name,
+        "reranker_model": search_service.reranker_model_name,
         "evaluations": [
             evaluation.model_dump(mode="json") for evaluation in evaluations
         ],
