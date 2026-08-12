@@ -265,3 +265,44 @@ def test_answer_endpoint_abstains_when_search_finds_no_evidence() -> None:
     assert body["claims"] == []
     assert body["citations"] == []
     assert body["abstention_reason"]["code"] == "EVIDENCE_INSUFFICIENT"
+
+
+def test_agent_answer_endpoint_returns_trajectory() -> None:
+    """Expose a first-search success path with its explicit tool trace."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/agent/answers",
+            json={"question": "산화 공정은 무엇인가?"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"]["abstained"] is False
+    assert body["retrieval_attempts"] == 1
+    assert body["search_modes"] == ["bm25"]
+    assert body["termination_reason"] == "ANSWER_VALIDATED"
+    assert [event["name"] for event in body["trace"]][-1] == "agent.completed"
+
+
+def test_agent_answer_endpoint_stops_at_retry_limit() -> None:
+    """Return a normal abstention after one configured failed attempt."""
+    app.dependency_overrides[get_search_service] = _provide_test_search_service
+    try:
+        response = TestClient(app).post(
+            "/v1/agent/answers",
+            json={
+                "question": "초전도 큐비트",
+                "max_retrieval_attempts": 1,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"]["abstained"] is True
+    assert body["retrieval_attempts"] == 1
+    assert body["termination_reason"] == "RETRIEVAL_LIMIT_REACHED"
