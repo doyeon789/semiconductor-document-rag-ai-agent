@@ -17,6 +17,17 @@ class AgentTerminationReason(StrEnum):
     ANSWER_VALIDATED = "ANSWER_VALIDATED"
     RETRIEVAL_LIMIT_REACHED = "RETRIEVAL_LIMIT_REACHED"
     ANSWER_VALIDATION_FAILED = "ANSWER_VALIDATION_FAILED"
+    PROMPT_INJECTION_DETECTED = "PROMPT_INJECTION_DETECTED"
+    STEP_LIMIT_REACHED = "STEP_LIMIT_REACHED"
+    TOOL_ERROR = "TOOL_ERROR"
+    TOOL_TIMEOUT = "TOOL_TIMEOUT"
+
+
+class AgentQuestionClass(StrEnum):
+    """Describe the safety classification applied before tool use."""
+
+    DOCUMENT_QUERY = "DOCUMENT_QUERY"
+    PROMPT_INJECTION = "PROMPT_INJECTION"
 
 
 class AgentTraceEvent(BaseModel):
@@ -38,9 +49,13 @@ class AgentRun(BaseModel):
 
     trace_id: UUID
     question: str = Field(min_length=1)
+    question_class: AgentQuestionClass
     answer: GroundedAnswer
-    retrieval_attempts: int = Field(ge=1)
-    search_queries: tuple[str, ...] = Field(min_length=1)
-    search_modes: tuple[SearchMode, ...] = Field(min_length=1)
+    step_count: int = Field(ge=1)
+    retrieval_attempts: int = Field(ge=0)
+    search_queries: tuple[str, ...]
+    search_modes: tuple[SearchMode, ...]
+    tool_errors: tuple[str, ...]
+    repair_attempts: int = Field(ge=0)
     termination_reason: AgentTerminationReason
     trace: tuple[AgentTraceEvent, ...] = Field(min_length=1)

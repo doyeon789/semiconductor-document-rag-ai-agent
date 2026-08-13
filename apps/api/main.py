@@ -137,6 +137,9 @@ class AgentAnswerRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=10)
     max_claims: int = Field(default=1, ge=1, le=3)
     max_retrieval_attempts: int = Field(default=2, ge=1, le=3)
+    max_steps: int = Field(default=14, ge=1, le=20)
+    tool_timeout_seconds: float = Field(default=45.0, gt=0, le=60)
+    max_repair_attempts: int = Field(default=1, ge=0, le=1)
 
 
 async def get_live_health() -> LiveHealthResponse:
@@ -332,6 +335,9 @@ async def answer_with_agent(
         top_k=request.top_k,
         max_claims=request.max_claims,
         max_retrieval_attempts=request.max_retrieval_attempts,
+        max_steps=request.max_steps,
+        tool_timeout_seconds=request.tool_timeout_seconds,
+        max_repair_attempts=request.max_repair_attempts,
     )
 
 

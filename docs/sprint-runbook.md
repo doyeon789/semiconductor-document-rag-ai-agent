@@ -198,23 +198,24 @@ data/eval/questions.jsonl
 
 #### 작업
 
-- [ ] AgentState를 구현한다.
-- [ ] classify, plan, retrieve, rewrite, gather node를 구현한다.
-- [ ] generate, validate, repair, abstain, finalize node를 구현한다.
-- [ ] routing 조건과 종료 이유 enum을 구현한다.
-- [ ] step/retrieval/tool error/timeout limit을 적용한다.
-- [ ] MCP client adapter를 연결한다.
-- [ ] `/v1/answers` endpoint를 구현한다.
-- [ ] prompt injection 방어 규칙을 적용한다.
-- [ ] 모든 edge와 termination path test를 작성한다.
+- [x] AgentState를 구현한다.
+- [x] classify, plan, retrieve, rewrite, gather node를 구현한다.
+- [x] generate, validate, repair, abstain, finalize node를 구현한다.
+- [x] routing 조건과 종료 이유 enum을 구현한다.
+- [x] step/retrieval/tool error/timeout limit을 적용한다.
+- [x] 합의한 MVP 범위에 따라 MCP 대신 typed in-process tool 경계를 유지한다.
+- [x] `/v1/agent/answers` endpoint에 실행 제한과 복구 trace를 연결한다.
+- [x] prompt injection 방어 규칙을 적용한다.
+- [x] 주요 edge와 termination path test를 작성한다.
 
 #### Day 6 Gate
 
-- [ ] 첫 검색 성공, 재검색 성공, 표 검색, 비교, 보류 경로가 통과한다.
-- [ ] 무한 loop가 불가능하다.
-- [ ] tool 오류 후 retry/fallback/abstention이 동작한다.
-- [ ] invalid Citation이 최종 답변에 남지 않는다.
-- [ ] trace로 node와 tool 경로를 재구성할 수 있다.
+- [x] 첫 검색 성공, 재검색 성공과 보류 경로가 통과한다.
+- [ ] 표 검색과 다중 문서 비교 경로는 후속 데이터 확장 범위로 남긴다.
+- [x] step·검색·복구 횟수 제한으로 무한 loop가 불가능하다.
+- [x] tool 오류 후 retry/fallback/abstention이 동작한다.
+- [x] invalid Citation과 인용으로 뒷받침되지 않는 Claim이 최종 답변에 남지 않는다.
+- [x] trace로 node와 tool 경로를 재구성할 수 있다.
 
 ### Day 7 — 자동 평가와 관측성
 

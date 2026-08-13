@@ -45,6 +45,7 @@
 | Grounded Answer | 문서명·페이지 기반 인용, 주장과 근거 연결, 원문 확인 경로 제공 |
 | Abstention | 근거가 부족하거나 서로 충돌하면 답변을 보류하고 추가 검색 수행 |
 | Agentic Retrieval | LangGraph 기반 도구 선택, 조건부 분기, 재검색 및 답변 검증 |
+| Agent Safety | Prompt injection 사전 차단, 실행 상한, tool 오류 fallback 및 Citation 복구 |
 | Tool Integration | Protocol 기반 내부 도구를 통한 검색·Evidence·Citation 기능 연동 |
 | Evaluation | 검색 정확도, 답변 충실성, 인용 정확도, Agent 도구 선택 품질 평가 |
 

@@ -286,7 +286,7 @@ HTTP status는 정상적인 제품 동작이므로 `200 OK`를 사용한다.
 
 ### `POST /v1/agent/answers`
 
-LangGraph가 검색 결과에 따라 답변, 재검색 또는 보류를 선택한다. 첫 검색은 BM25를 사용하고, 근거가 없거나 상위 결과가 애매하면 반도체 용어를 확장한 뒤 Reranker로 한 번 더 검색한다.
+LangGraph가 입력 안전 분류 후 검색 결과에 따라 답변, 재검색, Citation 복구 또는 보류를 선택한다. 첫 검색은 BM25를 사용하고, 근거가 없거나 상위 결과가 애매하면 반도체 용어를 확장한 뒤 Reranker로 한 번 더 검색한다. 각 tool call과 전체 graph step에는 실행 상한이 있다.
 
 Request:
 
@@ -295,7 +295,10 @@ Request:
   "question": "건식 산화와 습식 산화의 선택 기준은?",
   "top_k": 5,
   "max_claims": 1,
-  "max_retrieval_attempts": 2
+  "max_retrieval_attempts": 2,
+  "max_steps": 14,
+  "tool_timeout_seconds": 45.0,
+  "max_repair_attempts": 1
 }
 ```
 
@@ -305,6 +308,7 @@ Response의 `answer`는 기존 Grounded Answer 계약을 재사용하고 Agent t
 {
   "trace_id": "7c880132-f334-4f2e-bd4f-d069bf54a1df",
   "question": "건식 산화와 습식 산화의 선택 기준은?",
+  "question_class": "DOCUMENT_QUERY",
   "answer": {
     "answer": "- 습식 산화는 ... (반도체 8대 제조 공정, p.8)",
     "abstained": false,
@@ -336,26 +340,29 @@ Response의 `answer`는 기존 Grounded Answer 계약을 재사용하고 Agent t
     "sufficiency": "SUFFICIENT",
     "termination_reason": "ANSWER_VALIDATED"
   },
+  "step_count": 11,
   "retrieval_attempts": 2,
   "search_queries": [
     "건식 산화와 습식 산화의 선택 기준은?",
     "건식 산화와 습식 산화의 선택 기준은?"
   ],
   "search_modes": ["bm25", "rerank"],
+  "tool_errors": [],
+  "repair_attempts": 0,
   "termination_reason": "ANSWER_VALIDATED",
   "trace": [
     {
       "sequence": 1,
-      "name": "tool.search.completed",
-      "query": "건식 산화와 습식 산화의 선택 기준은?",
-      "mode": "bm25",
-      "detail": "evidence_count=5"
+      "name": "question.classified",
+      "query": null,
+      "mode": null,
+      "detail": "DOCUMENT_QUERY"
     }
   ]
 }
 ```
 
-정상적인 답변 보류도 `200 OK`를 사용한다. `termination_reason`은 `ANSWER_VALIDATED`, `RETRIEVAL_LIMIT_REACHED`, `ANSWER_VALIDATION_FAILED` 중 하나다.
+정상적인 답변 보류도 `200 OK`를 사용한다. `termination_reason`은 `ANSWER_VALIDATED`, `RETRIEVAL_LIMIT_REACHED`, `ANSWER_VALIDATION_FAILED`, `PROMPT_INJECTION_DETECTED`, `STEP_LIMIT_REACHED`, `TOOL_ERROR`, `TOOL_TIMEOUT` 중 하나다. 오류 메시지 원문은 노출하지 않고 `tool_errors`와 trace에는 오류 타입만 기록한다.
 
 ## 8. Evaluations
 
