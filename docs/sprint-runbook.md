@@ -258,22 +258,25 @@ Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에�
 
 #### 작업
 
-- [ ] 문서 등록·상태 조회 UI를 만든다.
-- [ ] 질문, 필터, 설명 수준 UI를 만든다.
-- [ ] 답변 Claim과 Citation을 연결해 표시한다.
-- [ ] 원문 페이지 이미지와 highlight를 표시한다.
-- [ ] 답변 보류와 오류 상태를 표시한다.
+- [x] 고정된 로컬 PDF를 대상으로 질문·검색 설정 UI를 만든다.
+- [x] 일반 RAG와 Agentic RAG 선택 UI를 만든다.
+- [x] 답변 Claim과 Citation을 연결해 표시한다.
+- [x] Citation에서 브라우저 원문 PDF 페이지를 열 수 있게 한다.
+- [x] 답변 보류와 API 오류 상태를 표시한다.
+- [x] Agent 검색 방식과 실행 trace를 표시한다.
 - [ ] 전체 Docker Compose 실행을 검증한다.
 - [ ] 배포 환경과 secret을 설정한다.
-- [ ] E2E smoke test를 실행한다.
-- [ ] README에 실제 화면, 지표, 실행법을 반영한다.
+- [x] 실제 FastAPI와 Streamlit을 연결한 smoke test를 실행한다.
+- [x] README에 로컬 실행법을 반영한다.
 - [ ] 데모 영상/GIF와 `v0.1.0` release note를 준비한다.
+
+문서 업로드 관리, Docker Compose, 외부 배포와 `v0.1.0` 공개는 미니 프로젝트의 Day 8 범위에서 제외한다. 고정된 공개 가능 PDF 한 개를 질문하고 Citation 페이지를 확인하는 데모에 집중하며, 성능 Gate를 개선한 뒤 릴리스를 준비한다.
 
 #### Day 8 Gate
 
-- [ ] 신규 환경에서 문서화된 명령으로 실행된다.
-- [ ] 사용자가 upload → ask → citation page 확인을 완료할 수 있다.
-- [ ] 공개 데모에 비공개 문서·secret이 없다.
+- [x] 현재 로컬 환경에서 문서화된 명령으로 실행된다.
+- [x] 사용자가 ask → answer → citation page 확인을 완료할 수 있다.
+- [x] UI와 로그에 비공개 문서 내용·secret이 추가되지 않는다.
 - [ ] evaluation report와 알려진 제한이 공개된다.
 - [ ] rollback 대상 image/index/version이 확인된다.
 

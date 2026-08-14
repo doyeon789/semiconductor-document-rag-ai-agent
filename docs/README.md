@@ -17,6 +17,7 @@
 11. [Testing Strategy](./testing-strategy.md) — 테스트 계층과 필수 회귀 시나리오
 12. [Data Policy](./data-policy.md) — 문서 저작권, 보안, 보존 정책
 13. [Operations](./operations.md) — 설정, 관측성, 배포, 장애 대응
+14. [Local Demo Guide](./demo-guide.md) — FastAPI와 Streamlit 실행 및 데모 시나리오
 
 ## Architecture Decision Records
 
