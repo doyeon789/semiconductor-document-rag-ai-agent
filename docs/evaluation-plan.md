@@ -232,7 +232,32 @@ reports/{evaluation_run_id}/
 }
 ```
 
-## 13. Release Gate
+## 13. 자동 평가 실행
+
+Day 7 전체 평가는 다음 한 명령으로 실행한다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\evaluate_rag.py
+```
+
+기본 입력은 `data/evaluation/rag_cases.json`의 14개 케이스와 로컬 PDF v1.3이다. 실행 결과는 Git에서 제외되는 `output/evaluation/{run_id}/`에 저장되며 기존 report artifact 외에 개인정보를 담지 않는 `events.jsonl`도 생성한다.
+
+2026-08-13 기준 실행 `20260813T084208Z-df07180`의 주요 결과는 다음과 같다.
+
+| 항목 | 결과 |
+| --- | ---: |
+| Rerank Page Hit@5 | 1.000 |
+| Rerank Recall@5 | 0.917 |
+| Rerank MRR | 0.819 |
+| Citation Precision | 1.000 |
+| Page Match Accuracy | 0.417 |
+| Abstention Recall | 0.500 |
+| Unsafe Answer Rate | 0.500 |
+| Trajectory Accuracy | 0.929 |
+
+검색 재순위화는 retrieval gate를 통과했지만, 정답 페이지 외의 근거를 답변에 포함하는 문제와 답변 불가 질문에 답한 문제가 확인되어 전체 MVP Gate는 실패했다. 이 결과는 Day 9 retrieval error analysis와 Day 11 citation·abstention hardening의 기준값으로 사용한다.
+
+## 14. Release Gate
 
 `v0.1.0` 릴리스 전 다음 조건을 모두 만족한다.
 
@@ -244,7 +269,7 @@ reports/{evaluation_run_id}/
 - 이전 baseline 대비 주요 지표 회귀 없음
 - 알려진 실패와 제외 범위를 README 또는 release note에 공개
 
-## 14. 관련 문서
+## 15. 관련 문서
 
 - [Requirements](./requirements.md)
 - [Retrieval Design](./retrieval-design.md)

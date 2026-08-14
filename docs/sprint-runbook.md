@@ -227,24 +227,26 @@ data/eval/questions.jsonl
 
 #### 작업
 
-- [ ] evaluation dataset validator를 구현한다.
-- [ ] retrieval metrics를 구현한다.
-- [ ] answer fact coverage와 numeric accuracy를 구현한다.
-- [ ] Citation metrics를 구현한다.
-- [ ] abstention metrics를 구현한다.
-- [ ] Agent trajectory metrics를 구현한다.
-- [ ] evaluation manifest와 report generator를 구현한다.
-- [ ] Langfuse trace와 구조화 로그를 연결한다.
-- [ ] 비용·token·latency budget을 기록한다.
-- [ ] full evaluation run을 실행한다.
+- [x] evaluation dataset validator를 구현한다.
+- [x] Recall@K, Precision@K, Page Hit@K, MRR, nDCG@K를 구현한다.
+- [x] answer fact coverage와 numeric accuracy를 구현한다.
+- [x] Citation precision·coverage·page·quote metrics를 구현한다.
+- [x] abstention precision·recall과 unsafe answer rate를 구현한다.
+- [x] Agent trajectory·termination·retry metrics를 구현한다.
+- [x] evaluation manifest와 report generator를 구현한다.
+- [x] 개인정보를 기록하지 않는 구조화 JSONL 실행 로그를 연결한다.
+- [x] 비용·token·latency budget을 manifest에 기록한다.
+- [x] full evaluation run을 실행한다.
+
+Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에서 제외했다. 대신 같은 실행을 재현하고 실패 단계를 확인하는 데 필요한 이벤트, 소요 시간, 상태를 `events.jsonl`에 기록한다.
 
 #### Day 7 Gate
 
-- [ ] 한 명령으로 전체 evaluation report가 생성된다.
-- [ ] Git SHA와 모델·설정 version이 report에 포함된다.
-- [ ] 질문 유형별 slice metric을 확인할 수 있다.
-- [ ] 실패 사례가 `failures.md`에 자동 정리된다.
-- [ ] MVP Gate 통과 여부가 명확하다.
+- [x] 한 명령으로 전체 evaluation report가 생성된다.
+- [x] Git SHA와 모델·설정 version이 report에 포함된다.
+- [x] 질문 유형과 언어별 slice metric을 확인할 수 있다.
+- [x] 실패 사례가 `failures.md`에 자동 정리된다.
+- [x] MVP Gate 통과 여부와 미달 항목이 명확하다.
 
 ### Day 8 — UI, 배포, Demo, v0.1.0
 
