@@ -23,6 +23,20 @@
 
 구현 기준과 세부 설계는 [docs/README.md](./docs/README.md)에서 확인할 수 있습니다. 요구사항, 데이터 모델, PDF 처리, Hybrid Retrieval, Agent·도구, API, 평가, 테스트, 운영 및 ADR을 문서별로 관리합니다.
 
+## Local Demo
+
+로컬 PDF를 준비한 뒤 두 터미널에서 API와 Streamlit을 실행합니다.
+
+```powershell
+# Terminal 1: FastAPI
+.\.venv\Scripts\python.exe -m uvicorn apps.api.main:app --reload
+
+# Terminal 2: Streamlit
+.\.venv\Scripts\python.exe -m streamlit run apps\ui\main.py
+```
+
+브라우저에서 `http://127.0.0.1:8501`을 열면 일반 RAG와 Agentic RAG로 질문하고, 답변을 뒷받침하는 원문과 PDF 페이지 및 Agent 실행 경로를 확인할 수 있습니다. 입력 PDF 위치와 전체 준비 과정은 [Local Demo Guide](./docs/demo-guide.md)를 참고하세요.
+
 ## Overview
 
 반도체 기술 문서는 분량이 길고, 약어·공정명·장비 파라미터가 혼재하며, 필요한 정보가 표·그림·여러 페이지에 흩어져 있습니다. 단순한 의미 기반 검색만으로는 정확한 부품명이나 공정 조건을 놓치기 쉽고, 생성된 답변만으로는 현업에서 근거를 검증하기 어렵습니다.
