@@ -173,7 +173,7 @@ flowchart LR
 .\.venv\Scripts\python.exe scripts\evaluate_rag.py
 ```
 
-이 명령은 retrieval, 답변 품질, Citation, 답변 보류, Agent trajectory를 한 번에 평가하고 `output/evaluation/{run_id}/`에 manifest, 집계·slice 지표, 실패 목록, 구조화 실행 로그를 생성합니다. 현재 기준 실행에서는 Rerank Page Hit@5 `1.000`, Recall@5 `0.917`, MRR `0.819`를 기록했으며, 낮은 Page Match Accuracy와 답변 불가 질문의 오답은 Day 9·11 개선 대상으로 남겨 두었습니다.
+이 명령은 retrieval, 답변 품질, Citation, 답변 보류, Agent trajectory를 한 번에 평가하고 `output/evaluation/{run_id}/`에 manifest, 집계·slice 지표, 검색 실패 분석, 구조화 실행 로그를 생성합니다. Day 9 검증에서 Rerank Page Hit@5 `1.000`, Recall@5 `0.917`, MRR `0.819`, Required Fact Coverage `0.917`, Page Match Accuracy `0.597`을 기록했습니다. 남은 잘못된 Evidence 페이지와 답변 불가능 질문의 오답은 자동 실패 보고서를 기준으로 Day 11에서 개선합니다.
 
 ## Project Priorities
 
