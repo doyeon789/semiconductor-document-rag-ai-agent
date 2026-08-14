@@ -2,8 +2,10 @@
 
 from collections.abc import Sequence
 from hashlib import sha256
+from pathlib import Path
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.main import app, get_search_service
@@ -245,6 +247,31 @@ def test_answer_endpoint_returns_verified_page_citation() -> None:
     assert body["citations"][0]["page_number"] == 8
     assert body["citations"][0]["quote"] in "산화 공정은 절연막을 형성한다."
     assert body["termination_reason"] == "ANSWER_VALIDATED"
+
+
+def test_document_pdf_endpoint_serves_inline_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Serve the configured source PDF for Citation page links."""
+    pdf_path = tmp_path / "source.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n%%EOF")
+    monkeypatch.setenv("DOCUMENT_PDF_PATH", str(pdf_path))
+
+    response = TestClient(app).get("/v1/documents/SEMI-8P-RAG-KO/pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"].startswith("inline")
+    assert response.content == pdf_path.read_bytes()
+
+
+def test_document_pdf_endpoint_rejects_unknown_document() -> None:
+    """Return a normal 404 instead of exposing arbitrary filesystem paths."""
+    response = TestClient(app).get("/v1/documents/unknown/pdf")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Document not found"
 
 
 def test_answer_endpoint_abstains_when_search_finds_no_evidence() -> None:
