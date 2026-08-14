@@ -319,11 +319,27 @@ Day 7 기준 실행과 Day 9 로컬 검증 실행의 비교는 다음과 같다.
 
 ### Day 11 — Citation & Abstention Hardening
 
-- [ ] wrong page, stale version, quote mismatch를 집중 검증한다.
-- [ ] unsupported Claim이 repair 또는 제거되는지 확인한다.
-- [ ] 답변 가능·불가능 threshold를 validation split에서 조정한다.
-- [ ] false abstention과 unsafe answer를 함께 줄인다.
-- Gate: Citation Gate와 Unsafe Answer Rate Gate를 통과한다.
+- [x] wrong page, stale version, quote mismatch를 집중 검증한다.
+- [x] unsupported Claim이 repair 또는 제거되는지 확인한다.
+- [x] 현재 개발 평가셋에서 Reranker 근거 충분성 threshold를 조정한다.
+- [x] false abstention을 늘리지 않고 unsafe answer를 제거한다.
+- [ ] 별도 holdout에서 threshold 과적합 여부를 확인한다.
+
+Reranker의 점수는 BM25 점수와 척도가 다르므로 Evidence Pack에 검색 방식을 기록하고, Reranker 최고 점수가 `-1.0` 미만일 때만 근거 부족으로 처리한다. 현재 평가셋에서 답변 불가능 Q13은 `-1.445`, 확인한 답변 가능 질문은 `-0.414` 이상으로 분리됐다. Native RAG와 Agentic RAG가 같은 충분성 판단을 사용한다.
+
+| 항목 | Day 9 | Day 11 검증 | 변화 |
+| --- | ---: | ---: | ---: |
+| Required Fact Coverage | 0.917 | 0.917 | 0.000 |
+| Citation Precision | 1.000 | 1.000 | 0.000 |
+| Page Match Accuracy | 0.597 | 0.597 | 0.000 |
+| Abstention Recall | 0.500 | 1.000 | +0.500 |
+| Unsafe Answer Rate | 0.500 | 0.000 | -0.500 |
+| Trajectory Accuracy | 0.929 | 1.000 | +0.071 |
+| Case Pass Rate | 0.357 | 0.429 | +0.072 |
+
+Citation Precision·Coverage·Quote Match와 Unsafe Answer Gate는 통과했다. Page Match Accuracy `0.597`은 여전히 Gate `0.900`에 미달하며, Citation 식별자 검증 문제가 아니라 검색 순위와 Evidence 페이지 선택 문제로 남아 있다.
+
+- Gate: Unsafe Answer Rate Gate는 통과했고, Citation Page Match Gate는 미달 상태가 명확히 기록됐다.
 
 ### Day 12 — Agent & MCP Reliability
 

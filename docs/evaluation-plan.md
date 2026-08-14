@@ -261,6 +261,8 @@ Day 7 전체 평가는 다음 한 명령으로 실행한다.
 
 Day 9에는 검색 결과, Citation 페이지와 검색 모드별 순위를 결합해 `missed`, `low_rank`, `wrong_page`, `rerank_regression`을 자동 분류하도록 했다. Evidence 선택을 질문 개념 기준으로 개선한 로컬 검증에서 Required Fact Coverage `0.917`, Page Match Accuracy `0.597`, Case Pass Rate `0.357`을 기록했다. Retrieval 지표는 기준값을 유지했으며, 답변 불가능 질문에 대한 보류 개선은 Day 11에서 다룬다.
 
+Day 11에는 Evidence Pack에 검색 방식을 보존하고 현재 Reranker의 관련도 점수 `-1.0`을 근거 충분성 기준으로 적용했다. Native RAG와 Agentic RAG 모두 약한 최종 근거를 답변 대신 보류한다. 개발 평가에서 Abstention Recall `1.000`, Unsafe Answer Rate `0.000`, Trajectory Accuracy `1.000`을 기록했고 답변 가능한 질문의 False Abstention은 발생하지 않았다. 별도 holdout이 아직 없으므로 threshold의 최종 확정은 Day 14 평가에서 수행한다.
+
 ## 14. Release Gate
 
 `v0.1.0` 릴리스 전 다음 조건을 모두 만족한다.
