@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from enum import StrEnum
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -13,6 +14,35 @@ from semiconductor_rag.domain import CitationSupport
 from semiconductor_rag.retrieval import tokenize_search_text
 
 SENTENCE_PATTERN = re.compile(r"[^.!?。\n]+[.!?。]?")
+CONCEPT_PATTERN = re.compile(r"[A-Za-z0-9]+(?:[./-][A-Za-z0-9]+)*|[가-힣]{2,}")
+QUESTION_CONCEPTS = frozenset(
+    {
+        "무엇",
+        "엇인",
+        "인가",
+        "어떤",
+        "어떻",
+        "떻게",
+        "어디",
+        "디에",
+        "에서",
+        "있나",
+        "설명",
+        "알려",
+    }
+)
+MIN_MARGINAL_CONCEPT_RATIO = 0.2
+
+
+@dataclass(frozen=True, slots=True)
+class _AnswerCandidate:
+    """Pair one source sentence with its evidence and query concepts."""
+
+    evidence_rank: int
+    sentence_rank: int
+    evidence: EvidenceBlock
+    quote: str
+    concepts: frozenset[str]
 
 
 class EvidenceSufficiency(StrEnum):
@@ -141,14 +171,16 @@ def build_grounded_answer(
     if not evidence_pack.blocks:
         return _build_abstention()
 
+    candidates = _select_answer_candidates(
+        evidence_pack,
+        max_claims,
+        max_quote_characters,
+    )
     claims: list[GroundedClaim] = []
     citations: list[GroundedCitation] = []
-    for evidence in evidence_pack.blocks[:max_claims]:
-        quote = _select_quote(
-            evidence_pack.query,
-            evidence.text,
-            max_quote_characters,
-        )
+    for candidate in candidates:
+        evidence = candidate.evidence
+        quote = candidate.quote
         claim_id = uuid5(
             NAMESPACE_URL,
             f"claim:{evidence_pack.query}:{evidence.evidence_id}:{quote}",
@@ -190,6 +222,176 @@ def build_grounded_answer(
         sufficiency=EvidenceSufficiency.SUFFICIENT,
         termination_reason=TerminationReason.ANSWER_VALIDATED,
     )
+
+
+def _select_answer_candidates(
+    evidence_pack: EvidencePack,
+    max_claims: int,
+    max_quote_characters: int,
+) -> tuple[_AnswerCandidate, ...]:
+    """Select quotes that cover distinct query concepts without over-citing.
+
+    Parameters
+    ----------
+    evidence_pack : EvidencePack
+        Ranked source pages considered for answer generation.
+    max_claims : int
+        Maximum number of selected answer claims.
+    max_quote_characters : int
+        Maximum exact quote length.
+
+    Returns
+    -------
+    tuple[_AnswerCandidate, ...]
+        Relevance-ordered candidates that each add meaningful query coverage.
+    """
+    query_concepts = _extract_concepts(evidence_pack.query)
+    candidates = tuple(
+        _AnswerCandidate(
+            evidence_rank=evidence_rank,
+            sentence_rank=sentence_rank,
+            evidence=evidence,
+            quote=quote[:max_quote_characters].strip(),
+            concepts=frozenset(
+                concept for concept in query_concepts if concept in quote.casefold()
+            ),
+        )
+        for evidence_rank, evidence in enumerate(evidence_pack.blocks)
+        for sentence_rank, quote in enumerate(_split_sentences(evidence.text))
+    )
+    if not candidates:
+        evidence = evidence_pack.blocks[0]
+        quote = _select_quote(
+            evidence_pack.query,
+            evidence.text,
+            max_quote_characters,
+        )
+        return (
+            _AnswerCandidate(
+                evidence_rank=0,
+                sentence_rank=0,
+                evidence=evidence,
+                quote=quote,
+                concepts=frozenset(),
+            ),
+        )
+    concepts_by_evidence = {
+        evidence_rank: {
+            concept
+            for concept in query_concepts
+            if concept
+            in _select_quote(
+                evidence_pack.query,
+                evidence.text,
+                max_quote_characters,
+            ).casefold()
+        }
+        for evidence_rank, evidence in enumerate(evidence_pack.blocks)
+    }
+    ranked_evidence = sorted(
+        concepts_by_evidence,
+        key=lambda rank: (-len(concepts_by_evidence[rank]), rank),
+    )
+    selected_evidence: set[int] = set()
+    covered_by_evidence: set[str] = set()
+    for evidence_rank in ranked_evidence:
+        new_concepts = concepts_by_evidence[evidence_rank].difference(
+            covered_by_evidence
+        )
+        if selected_evidence and (
+            not query_concepts
+            or len(new_concepts) / len(query_concepts) < MIN_MARGINAL_CONCEPT_RATIO
+        ):
+            continue
+        selected_evidence.add(evidence_rank)
+        covered_by_evidence.update(concepts_by_evidence[evidence_rank])
+        if (
+            len(selected_evidence) == max_claims
+            or covered_by_evidence == query_concepts
+        ):
+            break
+
+    ranked = sorted(
+        (
+            candidate
+            for candidate in candidates
+            if candidate.evidence_rank in selected_evidence and candidate.concepts
+        ),
+        key=lambda candidate: (
+            -len(candidate.concepts),
+            candidate.evidence_rank,
+            candidate.sentence_rank,
+        ),
+    )
+    selected: list[_AnswerCandidate] = []
+    covered: set[str] = set()
+    for candidate in ranked:
+        new_sentence_concepts = candidate.concepts.difference(covered)
+        if selected and not new_sentence_concepts:
+            continue
+        selected.append(candidate)
+        covered.update(candidate.concepts)
+        if len(selected) == max_claims or covered == query_concepts:
+            break
+    if selected:
+        return tuple(selected)
+    evidence = evidence_pack.blocks[0]
+    quote = _select_quote(
+        evidence_pack.query,
+        evidence.text,
+        max_quote_characters,
+    )
+    return (
+        _AnswerCandidate(
+            evidence_rank=0,
+            sentence_rank=0,
+            evidence=evidence,
+            quote=quote,
+            concepts=frozenset(),
+        ),
+    )
+
+
+def _split_sentences(text: str) -> tuple[str, ...]:
+    """Split source text into non-empty exact sentence substrings.
+
+    Parameters
+    ----------
+    text : str
+        Retrieved page text.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Sentence substrings in source order.
+    """
+    return tuple(
+        match.group(0).strip()
+        for match in SENTENCE_PATTERN.finditer(text)
+        if match.group(0).strip()
+    )
+
+
+def _extract_concepts(value: str) -> frozenset[str]:
+    """Extract stable English terms and Korean bigrams from a question.
+
+    Parameters
+    ----------
+    value : str
+        User question used for evidence selection.
+
+    Returns
+    -------
+    frozenset[str]
+        Case-folded technical terms with common question forms removed.
+    """
+    concepts: set[str] = set()
+    for token in CONCEPT_PATTERN.findall(value.casefold()):
+        if token.isascii():
+            concepts.add(token)
+            continue
+        concepts.update(token[index : index + 2] for index in range(len(token) - 1))
+    return frozenset(concepts.difference(QUESTION_CONCEPTS))
 
 
 def validate_citation(
@@ -257,11 +459,7 @@ def _select_quote(query: str, text: str, max_characters: int) -> str:
     str
         Exact substring copied from the source text.
     """
-    sentences = tuple(
-        match.group(0).strip()
-        for match in SENTENCE_PATTERN.finditer(text)
-        if match.group(0).strip()
-    )
+    sentences = _split_sentences(text)
     if not sentences:
         return text[:max_characters].strip()
     query_tokens = set(tokenize_search_text(query))
