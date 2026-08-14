@@ -39,7 +39,9 @@ jobs:
         run: uv run --frozen ruff check .
 
       - name: Type check
-        run: uv run --frozen mypy apps src tests
+        run: >-
+          uv run --frozen mypy apps src tests
+          scripts/evaluate_retrieval.py scripts/evaluate_rag.py
 
       - name: Run unit tests
         run: uv run --frozen pytest

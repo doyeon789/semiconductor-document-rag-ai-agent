@@ -1,10 +1,12 @@
 """Unit tests for retrieval dataset loading and baseline metrics."""
 
+import math
 from hashlib import sha256
 from pathlib import Path
 from uuid import UUID
 
 import pytest
+from pydantic import ValidationError
 
 from semiconductor_rag.domain import Chunk, ChunkType
 from semiconductor_rag.evaluation import (
@@ -133,7 +135,10 @@ def test_evaluate_retrieval_calculates_page_hit_and_mrr() -> None:
 
     assert service.prepared_mode is SearchMode.BM25
     assert result.page_hit_at_k == pytest.approx(2 / 3)
+    assert result.recall_at_k == pytest.approx(2 / 3)
+    assert result.precision_at_k == pytest.approx(1 / 3)
     assert result.mrr == pytest.approx(0.5)
+    assert result.ndcg_at_k == pytest.approx((1 + 1 / math.log2(3)) / 3)
     assert result.case_count == 3
     assert result.p95_latency_ms >= result.mean_latency_ms
 
@@ -155,3 +160,17 @@ def test_evaluate_retrieval_accepts_reranked_mode() -> None:
     assert service.prepared_mode is SearchMode.RERANK
     assert result.mode is SearchMode.RERANK
     assert result.page_hit_at_k == 1.0
+
+
+def test_retrieval_case_rejects_inconsistent_answerability() -> None:
+    """Require gold pages only for questions the corpus can answer."""
+    with pytest.raises(ValidationError, match="answerable cases require"):
+        RetrievalCase(id="Q1", query="missing", answerable=True)
+
+    with pytest.raises(ValidationError, match="must not define"):
+        RetrievalCase(
+            id="Q2",
+            query="not answerable",
+            answerable=False,
+            expected_pages=[3],
+        )
