@@ -10,6 +10,10 @@ from statistics import mean
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from semiconductor_rag.evaluation.error_analysis import (
+    RetrievalErrorAnalysis,
+    analyze_retrieval_failures,
+)
 from semiconductor_rag.evaluation.quality import AnswerCaseResult, QualityEvaluation
 from semiconductor_rag.evaluation.retrieval import RetrievalEvaluation
 from semiconductor_rag.retrieval import SearchMode
@@ -67,6 +71,8 @@ class EvaluationArtifacts(BaseModel):
     retrieval_results: Path
     answer_results: Path
     agent_trajectories: Path
+    retrieval_failures: Path
+    retrieval_error_analysis: Path
     failures: Path
     summary: Path
 
@@ -177,10 +183,13 @@ def write_evaluation_report(
         retrieval_results=directory / "retrieval_results.jsonl",
         answer_results=directory / "answer_results.jsonl",
         agent_trajectories=directory / "agent_trajectories.jsonl",
+        retrieval_failures=directory / "retrieval_failures.jsonl",
+        retrieval_error_analysis=directory / "retrieval_error_analysis.md",
         failures=directory / "failures.md",
         summary=directory / "summary.md",
     )
     gates = build_release_gates(retrieval, quality)
+    error_analysis = analyze_retrieval_failures(retrieval, quality)
     aggregate = {
         "retrieval": {
             mode.value: evaluation.model_dump(mode="json", exclude={"cases"})
@@ -220,12 +229,61 @@ def write_evaluation_report(
             for case in quality.cases
         ),
     )
+    _write_jsonl(
+        paths.retrieval_failures,
+        (case.model_dump(mode="json") for case in error_analysis.cases),
+    )
+    paths.retrieval_error_analysis.write_text(
+        _render_retrieval_error_analysis(error_analysis),
+        encoding="utf-8",
+    )
     paths.failures.write_text(_render_failures(quality.cases), encoding="utf-8")
     paths.summary.write_text(
         _render_summary(manifest, retrieval, quality, gates),
         encoding="utf-8",
     )
     return paths
+
+
+def _render_retrieval_error_analysis(analysis: RetrievalErrorAnalysis) -> str:
+    """Render failure category totals and case-level ranking diagnostics."""
+    lines = [
+        "# Retrieval Error Analysis",
+        "",
+        f"- Preferred mode: `{analysis.preferred_mode.value}`",
+        f"- Failure cases: `{analysis.failure_case_count}/{analysis.case_count}`",
+        "",
+        "## Failure Counts",
+        "",
+    ]
+    if analysis.failure_counts:
+        lines.extend(
+            f"- `{failure_type.value}`: {count}"
+            for failure_type, count in sorted(
+                analysis.failure_counts.items(), key=lambda item: item[0].value
+            )
+        )
+    else:
+        lines.append("- 실패 유형이 없습니다.")
+    lines.extend(("", "## Cases", ""))
+    for case in analysis.cases:
+        failure_types = (
+            ", ".join(failure_type.value for failure_type in case.failure_types)
+            or "none"
+        )
+        lines.extend(
+            (
+                f"### {case.id}",
+                "",
+                f"- 실패 유형: `{failure_types}`",
+                f"- 정답 페이지: `{case.expected_pages}`",
+                f"- 검색 페이지: `{case.retrieved_pages}`",
+                f"- Citation 페이지: `{case.cited_pages}`",
+                f"- 첫 정답 순위: `{case.first_relevant_rank}`",
+                "",
+            )
+        )
+    return "\n".join(lines)
 
 
 def _write_json(path: Path, payload: object) -> None:

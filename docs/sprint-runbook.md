@@ -284,11 +284,30 @@ Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에�
 
 ### Day 9 — Retrieval Error Analysis
 
-- [ ] 실패 질문을 `missed`, `low_rank`, `wrong_document`, `wrong_page`, `table_miss`, `expansion_error`로 분류한다.
-- [ ] Dense/BM25 후보 단계와 Reranker 단계를 분리해 원인을 찾는다.
+- [x] 현재 평가셋에서 확인 가능한 실패를 `missed`, `low_rank`, `wrong_page`, `rerank_regression`으로 자동 분류한다.
+- [x] BM25·Dense·Hybrid 후보 단계와 Reranker 단계를 비교해 순위 회귀를 찾는다.
+- [x] 선택된 Evidence 문장이 질문의 서로 다른 핵심 개념을 보완하도록 개선한다.
+- [x] 같은 정답 페이지의 여러 문장을 선택해 사실 누락을 줄인다.
 - [ ] threshold와 top-k를 validation split에서만 조정한다.
 - [ ] holdout 결과를 확인하고 과적합 여부를 기록한다.
-- Gate: 주요 retrieval failure 유형마다 최소 하나의 regression case가 있다.
+- [x] 현재 주요 retrieval failure 유형마다 최소 하나의 regression test가 있다.
+
+현재 14개 개발 평가 케이스에는 다중 문서·표 질문이 없으므로 `wrong_document`, `table_miss`, `expansion_error` 분류는 해당 케이스를 추가할 때 확장한다. Retrieval 지표가 이미 Gate를 통과해 threshold와 top-k는 변경하지 않았고, holdout 조정도 하지 않았다.
+
+Day 7 기준 실행과 Day 9 로컬 검증 실행의 비교는 다음과 같다.
+
+| 항목 | Day 7 기준 | Day 9 검증 | 변화 |
+| --- | ---: | ---: | ---: |
+| Rerank Page Hit@5 | 1.000 | 1.000 | 0.000 |
+| Rerank Recall@5 | 0.917 | 0.917 | 0.000 |
+| Rerank MRR | 0.819 | 0.819 | 0.000 |
+| Required Fact Coverage | 0.875 | 0.917 | +0.042 |
+| Page Match Accuracy | 0.417 | 0.597 | +0.180 |
+| Case Pass Rate | 0.071 | 0.357 | +0.286 |
+
+남은 `low_rank` 4건, `rerank_regression` 3건과 Citation에 정답 외 페이지가 섞이는 7건은 자동 보고서에서 확인할 수 있다. 답변 불가능 질문의 Unsafe Answer는 Day 11 범위다.
+
+- Gate: 현재 평가셋에서 관찰된 retrieval failure 유형의 자동 분류와 regression test가 모두 동작한다.
 
 ### Day 10 — PDF, OCR, Table Edge Cases
 

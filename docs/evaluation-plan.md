@@ -210,8 +210,10 @@ reports/{evaluation_run_id}/
 ├── aggregate_metrics.json
 ├── slice_metrics.json
 ├── retrieval_results.jsonl
+├── retrieval_failures.jsonl
 ├── answer_results.jsonl
 ├── agent_trajectories.jsonl
+├── retrieval_error_analysis.md
 ├── failures.md
 └── summary.md
 ```
@@ -256,6 +258,8 @@ Day 7 전체 평가는 다음 한 명령으로 실행한다.
 | Trajectory Accuracy | 0.929 |
 
 검색 재순위화는 retrieval gate를 통과했지만, 정답 페이지 외의 근거를 답변에 포함하는 문제와 답변 불가 질문에 답한 문제가 확인되어 전체 MVP Gate는 실패했다. 이 결과는 Day 9 retrieval error analysis와 Day 11 citation·abstention hardening의 기준값으로 사용한다.
+
+Day 9에는 검색 결과, Citation 페이지와 검색 모드별 순위를 결합해 `missed`, `low_rank`, `wrong_page`, `rerank_regression`을 자동 분류하도록 했다. Evidence 선택을 질문 개념 기준으로 개선한 로컬 검증에서 Required Fact Coverage `0.917`, Page Match Accuracy `0.597`, Case Pass Rate `0.357`을 기록했다. Retrieval 지표는 기준값을 유지했으며, 답변 불가능 질문에 대한 보류 개선은 Day 11에서 다룬다.
 
 ## 14. Release Gate
 
