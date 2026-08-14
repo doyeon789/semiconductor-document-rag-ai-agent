@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from semiconductor_rag.agent import (
@@ -151,6 +152,43 @@ async def get_live_health() -> LiveHealthResponse:
         A response indicating that the process can serve requests.
     """
     return LiveHealthResponse()
+
+
+async def get_document_pdf(document_id: str) -> FileResponse:
+    """Return the configured source PDF for page-level Citation links.
+
+    Parameters
+    ----------
+    document_id : str
+        Stable identifier of the requested document.
+
+    Returns
+    -------
+    fastapi.responses.FileResponse
+        Inline PDF response rendered by the browser.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If the identifier is unknown or the configured PDF does not exist.
+    """
+    if document_id != DEFAULT_DOCUMENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    pdf_path = Path(os.getenv("DOCUMENT_PDF_PATH", str(DEFAULT_PDF_PATH)))
+    if not pdf_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document PDF is unavailable",
+        )
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        filename=pdf_path.name,
+        content_disposition_type="inline",
+    )
 
 
 @lru_cache(maxsize=1)
@@ -366,6 +404,13 @@ def create_app() -> FastAPI:
         methods=["POST"],
         response_model=SearchResponse,
         tags=["search"],
+    )
+    application.add_api_route(
+        "/v1/documents/{document_id}/pdf",
+        get_document_pdf,
+        methods=["GET"],
+        response_class=FileResponse,
+        tags=["documents"],
     )
     application.add_api_route(
         "/v1/answers",
