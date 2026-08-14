@@ -11,7 +11,7 @@ from semiconductor_rag.answering import (
     validate_citation,
 )
 from semiconductor_rag.domain import Chunk, ChunkType
-from semiconductor_rag.retrieval import SearchHit
+from semiconductor_rag.retrieval import SearchHit, SearchMode
 
 VERSION_ID = UUID("55555555-5555-4555-8555-555555555555")
 
@@ -82,6 +82,23 @@ def test_grounded_answer_abstains_without_evidence() -> None:
     assert result.sufficiency is EvidenceSufficiency.INSUFFICIENT
 
 
+def test_grounded_answer_abstains_for_weak_reranked_evidence() -> None:
+    """Reject lexical overlap when the reranker finds no relevant source."""
+    pack = build_evidence_pack(
+        "큐비트 오류 방식",
+        (_make_hit("공정 오류를 줄이는 방식", score=-1.1),),
+        "doc-1",
+        "공정 안내서",
+        retrieval_mode=SearchMode.RERANK,
+    )
+
+    result = build_grounded_answer(pack)
+
+    assert result.abstained is True
+    assert result.evidence_count == 1
+    assert result.termination_reason is TerminationReason.EVIDENCE_INSUFFICIENT
+
+
 def test_citation_validator_rejects_quote_mismatch() -> None:
     """Reject a citation quote that cannot be found in the source block."""
     pack = build_evidence_pack(
@@ -92,6 +109,36 @@ def test_citation_validator_rejects_quote_mismatch() -> None:
     )
     result = build_grounded_answer(pack)
     mismatched = result.citations[0].model_copy(update={"quote": "원문에 없는 주장"})
+
+    assert validate_citation(mismatched, pack.blocks[0]) is False
+
+
+def test_citation_validator_rejects_wrong_page() -> None:
+    """Reject a quote that is attached to a different PDF page."""
+    pack = build_evidence_pack(
+        "습식 산화",
+        (_make_hit("습식 산화는 빠르다.", page=8),),
+        "doc-1",
+        "공정 안내서",
+    )
+    result = build_grounded_answer(pack)
+    mismatched = result.citations[0].model_copy(update={"page_number": 9})
+
+    assert validate_citation(mismatched, pack.blocks[0]) is False
+
+
+def test_citation_validator_rejects_stale_document_version() -> None:
+    """Reject a Citation that points to an obsolete document version."""
+    pack = build_evidence_pack(
+        "습식 산화",
+        (_make_hit("습식 산화는 빠르다.", page=8),),
+        "doc-1",
+        "공정 안내서",
+    )
+    result = build_grounded_answer(pack)
+    mismatched = result.citations[0].model_copy(
+        update={"version_id": UUID("99999999-9999-4999-8999-999999999999")}
+    )
 
     assert validate_citation(mismatched, pack.blocks[0]) is False
 

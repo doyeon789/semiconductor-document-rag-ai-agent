@@ -7,7 +7,7 @@ import pytest
 
 from semiconductor_rag.answering import build_evidence_pack
 from semiconductor_rag.domain import Chunk, ChunkType
-from semiconductor_rag.retrieval import SearchHit
+from semiconductor_rag.retrieval import SearchHit, SearchMode
 
 VERSION_ID = UUID("66666666-6666-4666-8666-666666666666")
 
@@ -92,3 +92,16 @@ def test_evidence_pack_drops_candidates_without_query_overlap() -> None:
     pack = build_evidence_pack("초전도 큐비트", hits, "doc", "title")
 
     assert pack.blocks == ()
+
+
+def test_evidence_pack_records_the_search_score_family() -> None:
+    """Retain the retrieval mode needed to interpret confidence scores."""
+    pack = build_evidence_pack(
+        "산화 공정",
+        (_make_hit(1, 8, "산화 공정 설명", 0.9),),
+        "doc",
+        "title",
+        retrieval_mode=SearchMode.RERANK,
+    )
+
+    assert pack.retrieval_mode is SearchMode.RERANK

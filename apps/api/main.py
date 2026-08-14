@@ -328,6 +328,7 @@ async def answer_question(
         document_id=DEFAULT_DOCUMENT_ID,
         document_title=DEFAULT_DOCUMENT_TITLE,
         max_evidence=request.top_k,
+        retrieval_mode=SearchMode.RERANK,
     )
     grounded_answer = build_grounded_answer(
         evidence_pack,

@@ -7,7 +7,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from semiconductor_rag.retrieval import SearchHit, tokenize_search_text
+from semiconductor_rag.retrieval import SearchHit, SearchMode, tokenize_search_text
+
+MIN_RERANK_RELEVANCE_SCORE = -1.0
 
 
 class EvidenceBlock(BaseModel):
@@ -31,6 +33,7 @@ class EvidencePack(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     query: str = Field(min_length=1)
+    retrieval_mode: SearchMode | None = None
     blocks: tuple[EvidenceBlock, ...]
 
 
@@ -40,6 +43,7 @@ def build_evidence_pack(
     document_id: str,
     document_title: str,
     max_evidence: int = 5,
+    retrieval_mode: SearchMode | None = None,
 ) -> EvidencePack:
     """Select the strongest distinct PDF pages as answer evidence.
 
@@ -55,6 +59,8 @@ def build_evidence_pack(
         Human-readable source document title.
     max_evidence : int, default=5
         Maximum number of distinct page blocks to retain.
+    retrieval_mode : SearchMode or None, default=None
+        Search score family attached to the retained evidence.
 
     Returns
     -------
@@ -102,4 +108,29 @@ def build_evidence_pack(
         )
         if len(blocks) == max_evidence:
             break
-    return EvidencePack(query=query, blocks=tuple(blocks))
+    return EvidencePack(
+        query=query,
+        retrieval_mode=retrieval_mode,
+        blocks=tuple(blocks),
+    )
+
+
+def has_sufficient_evidence(evidence_pack: EvidencePack) -> bool:
+    """Return whether an Evidence Pack clears its retrieval confidence gate.
+
+    Parameters
+    ----------
+    evidence_pack : EvidencePack
+        Ranked evidence and the search mode that produced its scores.
+
+    Returns
+    -------
+    bool
+        ``True`` when evidence exists and reranked evidence, when applicable,
+        clears the calibrated relevance threshold.
+    """
+    if not evidence_pack.blocks:
+        return False
+    if evidence_pack.retrieval_mode is not SearchMode.RERANK:
+        return True
+    return evidence_pack.blocks[0].retrieval_score >= MIN_RERANK_RELEVANCE_SCORE

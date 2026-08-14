@@ -9,7 +9,11 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from semiconductor_rag.answering.evidence import EvidenceBlock, EvidencePack
+from semiconductor_rag.answering.evidence import (
+    EvidenceBlock,
+    EvidencePack,
+    has_sufficient_evidence,
+)
 from semiconductor_rag.domain import CitationSupport
 from semiconductor_rag.retrieval import tokenize_search_text
 
@@ -168,8 +172,8 @@ def build_grounded_answer(
         raise ValueError("max_claims must be positive")
     if max_quote_characters < 1:
         raise ValueError("max_quote_characters must be positive")
-    if not evidence_pack.blocks:
-        return _build_abstention()
+    if not has_sufficient_evidence(evidence_pack):
+        return _build_abstention(len(evidence_pack.blocks))
 
     candidates = _select_answer_candidates(
         evidence_pack,
@@ -422,8 +426,13 @@ def validate_citation(
     )
 
 
-def _build_abstention() -> GroundedAnswer:
+def _build_abstention(evidence_count: int = 0) -> GroundedAnswer:
     """Create the standard evidence-insufficient outcome.
+
+    Parameters
+    ----------
+    evidence_count : int, default=0
+        Number of candidate evidence blocks rejected as insufficient.
 
     Returns
     -------
@@ -436,7 +445,7 @@ def _build_abstention() -> GroundedAnswer:
         abstention_reason=AbstentionReason(),
         claims=(),
         citations=(),
-        evidence_count=0,
+        evidence_count=evidence_count,
         sufficiency=EvidenceSufficiency.INSUFFICIENT,
         termination_reason=TerminationReason.EVIDENCE_INSUFFICIENT,
     )

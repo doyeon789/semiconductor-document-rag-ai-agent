@@ -24,6 +24,7 @@ from semiconductor_rag.answering import (
     EvidencePack,
     GroundedAnswer,
     build_grounded_answer,
+    has_sufficient_evidence,
     validate_citation,
 )
 from semiconductor_rag.retrieval import SearchMode
@@ -563,7 +564,7 @@ class RetrievalAgent:
         evidence = state["evidence"]
         if state["last_tool_failure"] is not None or evidence is None:
             return False
-        if not evidence.blocks:
+        if not has_sufficient_evidence(evidence):
             return False
         if state["next_mode"] is not SearchMode.BM25 or len(evidence.blocks) == 1:
             return True

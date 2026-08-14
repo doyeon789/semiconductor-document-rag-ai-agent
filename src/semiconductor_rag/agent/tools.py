@@ -91,6 +91,7 @@ class LocalRetrievalAgentTools:
             document_id=self._document_id,
             document_title=self._document_title,
             max_evidence=top_k,
+            retrieval_mode=mode,
         )
 
     def answer_evidence(
