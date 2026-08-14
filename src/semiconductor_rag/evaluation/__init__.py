@@ -1,5 +1,11 @@
 """Public RAG evaluation contracts, metrics, and report generation."""
 
+from semiconductor_rag.evaluation.error_analysis import (
+    RetrievalErrorAnalysis,
+    RetrievalFailureCase,
+    RetrievalFailureType,
+    analyze_retrieval_failures,
+)
 from semiconductor_rag.evaluation.observability import (
     EvaluationEvent,
     JsonlEventWriter,
@@ -42,8 +48,12 @@ __all__ = [
     "RetrievalCase",
     "RetrievalCaseResult",
     "RetrievalDataset",
+    "RetrievalErrorAnalysis",
     "RetrievalEvaluation",
+    "RetrievalFailureCase",
+    "RetrievalFailureType",
     "TimedEvaluationEvent",
+    "analyze_retrieval_failures",
     "build_release_gates",
     "build_slice_metrics",
     "evaluate_quality",

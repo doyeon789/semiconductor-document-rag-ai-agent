@@ -47,6 +47,7 @@ class AnswerCaseResult(BaseModel):
     numeric_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
     citation_precision: float = Field(ge=0.0, le=1.0)
     citation_coverage: float = Field(ge=0.0, le=1.0)
+    cited_pages: list[int]
     page_match_accuracy: float = Field(ge=0.0, le=1.0)
     quote_match_rate: float = Field(ge=0.0, le=1.0)
     faithfulness: float = Field(ge=0.0, le=1.0)
@@ -307,6 +308,7 @@ def _evaluate_answer_case(
         numeric_accuracy=numeric_accuracy,
         citation_precision=citation_precision,
         citation_coverage=citation_coverage,
+        cited_pages=[citation.page_number for citation in run.answer.citations],
         page_match_accuracy=page_match_accuracy,
         quote_match_rate=quote_match_rate,
         faithfulness=faithfulness,

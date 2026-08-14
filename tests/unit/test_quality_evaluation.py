@@ -246,6 +246,11 @@ def test_write_evaluation_report_creates_reproducible_artifacts(
     assert artifacts.retrieval_results.is_file()
     assert artifacts.answer_results.is_file()
     assert artifacts.agent_trajectories.is_file()
+    assert artifacts.retrieval_failures.is_file()
+    assert artifacts.retrieval_error_analysis.is_file()
+    assert "Failure cases: `0/1`" in artifacts.retrieval_error_analysis.read_text(
+        encoding="utf-8"
+    )
     assert artifacts.failures.read_text(encoding="utf-8").endswith(
         "실패 사례가 없습니다.\n"
     )
