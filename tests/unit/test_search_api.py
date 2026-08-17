@@ -98,6 +98,27 @@ class ApiTestReranker:
         return tuple(0.9 if "산화" in document else 0.1 for document in documents)
 
 
+class LowConfidenceApiTestReranker(ApiTestReranker):
+    """Return scores below the configured evidence sufficiency threshold."""
+
+    def score(self, query: str, documents: Sequence[str]) -> tuple[float, ...]:
+        """Mark every candidate as unrelated to the question.
+
+        Parameters
+        ----------
+        query : str
+            Ignored test query.
+        documents : collections.abc.Sequence[str]
+            Candidate texts.
+
+        Returns
+        -------
+        tuple[float, ...]
+            Stable low-confidence relevance scores.
+        """
+        return tuple(-1.1 for _ in documents)
+
+
 def _make_chunk(number: int, page: int, text: str) -> Chunk:
     """Create one stable API test chunk.
 
@@ -142,6 +163,21 @@ def _provide_test_search_service() -> LocalSearchService:
         ],
         ApiTestEmbedder(),
         ApiTestReranker(),
+    )
+
+
+def _provide_low_confidence_search_service() -> LocalSearchService:
+    """Return a service whose reranker rejects every candidate.
+
+    Returns
+    -------
+    LocalSearchService
+        Search service with low final relevance scores.
+    """
+    return LocalSearchService(
+        [_make_chunk(1, 8, "공정 오류를 줄이는 방식")],
+        ApiTestEmbedder(),
+        LowConfidenceApiTestReranker(),
     )
 
 
@@ -292,6 +328,26 @@ def test_answer_endpoint_abstains_when_search_finds_no_evidence() -> None:
     assert body["claims"] == []
     assert body["citations"] == []
     assert body["abstention_reason"]["code"] == "EVIDENCE_INSUFFICIENT"
+
+
+def test_answer_endpoint_abstains_for_low_reranker_confidence() -> None:
+    """Return HTTP 200 without claims when final evidence is too weak."""
+    app.dependency_overrides[get_search_service] = (
+        _provide_low_confidence_search_service
+    )
+    try:
+        response = TestClient(app).post(
+            "/v1/answers",
+            json={"question": "큐비트 오류 방식"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["abstained"] is True
+    assert body["evidence_count"] == 1
+    assert body["citations"] == []
 
 
 def test_agent_answer_endpoint_returns_trajectory() -> None:

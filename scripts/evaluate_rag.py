@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 from semiconductor_rag.agent import LocalRetrievalAgentTools, RetrievalAgent
+from semiconductor_rag.answering import MIN_RERANK_RELEVANCE_SCORE
 from semiconductor_rag.evaluation import (
     EvaluationManifest,
     JsonlEventWriter,
@@ -152,6 +153,7 @@ def main() -> None:
             "agent_max_steps": 14,
             "agent_max_retrieval_attempts": 2,
             "agent_tool_timeout_seconds": 45.0,
+            "min_rerank_relevance_score": MIN_RERANK_RELEVANCE_SCORE,
         },
         budgets={
             "search_p95_warm_ms": 2_000,

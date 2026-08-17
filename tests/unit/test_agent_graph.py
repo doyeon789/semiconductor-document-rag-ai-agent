@@ -81,8 +81,33 @@ class ScriptedAgentTools:
         return answer.model_copy(update={"citations": (invalid_citation,)})
 
 
-def _make_evidence(query: str, text: str, page: int = 8) -> EvidencePack:
-    """Create one page-grounded evidence pack for an agent scenario."""
+def _make_evidence(
+    query: str,
+    text: str,
+    page: int = 8,
+    score: float = 0.9,
+    retrieval_mode: SearchMode | None = None,
+) -> EvidencePack:
+    """Create one page-grounded evidence pack for an agent scenario.
+
+    Parameters
+    ----------
+    query : str
+        Question associated with the evidence.
+    text : str
+        Exact source text retained in the evidence.
+    page : int, default=8
+        One-based PDF page number.
+    score : float, default=0.9
+        Retrieval relevance score.
+    retrieval_mode : SearchMode or None, default=None
+        Search score family associated with the evidence.
+
+    Returns
+    -------
+    EvidencePack
+        Page-grounded evidence for a scripted agent scenario.
+    """
     chunk = Chunk(
         chunk_id=UUID(int=page),
         version_id=VERSION_ID,
@@ -95,9 +120,10 @@ def _make_evidence(query: str, text: str, page: int = 8) -> EvidencePack:
     )
     return build_evidence_pack(
         query,
-        (SearchHit(chunk=chunk, score=0.9),),
+        (SearchHit(chunk=chunk, score=score),),
         document_id="doc-1",
         document_title="공정 안내서",
+        retrieval_mode=retrieval_mode,
     )
 
 
@@ -193,6 +219,28 @@ def test_agent_abstains_at_retrieval_limit() -> None:
     tools = ScriptedAgentTools(lambda query, mode: _empty_evidence(query))
 
     result = RetrievalAgent(tools).run("문서에 없는 초전도 큐비트 질문")
+
+    assert result.answer.abstained is True
+    assert result.retrieval_attempts == 2
+    assert result.termination_reason is AgentTerminationReason.RETRIEVAL_LIMIT_REACHED
+    assert result.trace[-1].name == "agent.abstained"
+
+
+def test_agent_abstains_when_reranked_evidence_is_too_weak() -> None:
+    """Refuse a superficially overlapping page after the final retrieval."""
+
+    def search_script(query: str, mode: SearchMode) -> EvidencePack:
+        """Force retry before returning a low-confidence reranked page."""
+        if mode is SearchMode.BM25:
+            return _make_ambiguous_evidence(query)
+        return _make_evidence(
+            query,
+            "큐비트와 무관한 공정 오류 설명",
+            score=-1.1,
+            retrieval_mode=mode,
+        )
+
+    result = RetrievalAgent(ScriptedAgentTools(search_script)).run("큐비트 오류 방식")
 
     assert result.answer.abstained is True
     assert result.retrieval_attempts == 2
