@@ -236,7 +236,7 @@ reports/{evaluation_run_id}/
 
 ## 13. 자동 평가 실행
 
-Day 7 전체 평가는 다음 한 명령으로 실행한다.
+전체 평가는 다음 한 명령으로 실행한다.
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\evaluate_rag.py
@@ -257,11 +257,13 @@ Day 7 전체 평가는 다음 한 명령으로 실행한다.
 | Unsafe Answer Rate | 0.500 |
 | Trajectory Accuracy | 0.929 |
 
-검색 재순위화는 retrieval gate를 통과했지만, 정답 페이지 외의 근거를 답변에 포함하는 문제와 답변 불가 질문에 답한 문제가 확인되어 전체 MVP Gate는 실패했다. 이 결과는 Day 9 retrieval error analysis와 Day 11 citation·abstention hardening의 기준값으로 사용한다.
+초기 검색 재순위화는 retrieval gate를 통과했지만, 정답 페이지 외의 근거를 답변에 포함하는 문제와 답변 불가 질문에 답한 문제가 확인되어 전체 MVP Gate는 실패했다. 이 결과는 retrieval error analysis와 citation·abstention hardening의 기준값으로 사용한다.
 
-Day 9에는 검색 결과, Citation 페이지와 검색 모드별 순위를 결합해 `missed`, `low_rank`, `wrong_page`, `rerank_regression`을 자동 분류하도록 했다. Evidence 선택을 질문 개념 기준으로 개선한 로컬 검증에서 Required Fact Coverage `0.917`, Page Match Accuracy `0.597`, Case Pass Rate `0.357`을 기록했다. Retrieval 지표는 기준값을 유지했으며, 답변 불가능 질문에 대한 보류 개선은 Day 11에서 다룬다.
+검색 오류 분석에서는 검색 결과, Citation 페이지와 검색 모드별 순위를 결합해 `missed`, `low_rank`, `wrong_page`, `rerank_regression`을 자동 분류하도록 했다. Evidence 선택을 질문 개념 기준으로 개선한 로컬 검증에서 Required Fact Coverage `0.917`, Page Match Accuracy `0.597`, Case Pass Rate `0.357`을 기록했다. Retrieval 지표는 기준값을 유지했으며, 답변 불가능 질문에 대한 보류는 citation·abstention hardening에서 개선했다.
 
-Day 11에는 Evidence Pack에 검색 방식을 보존하고 현재 Reranker의 관련도 점수 `-1.0`을 근거 충분성 기준으로 적용했다. Native RAG와 Agentic RAG 모두 약한 최종 근거를 답변 대신 보류한다. 개발 평가에서 Abstention Recall `1.000`, Unsafe Answer Rate `0.000`, Trajectory Accuracy `1.000`을 기록했고 답변 가능한 질문의 False Abstention은 발생하지 않았다. 별도 holdout이 아직 없으므로 threshold의 최종 확정은 Day 14 평가에서 수행한다.
+Citation·Abstention 안정화에서는 Evidence Pack에 검색 방식을 보존하고 현재 Reranker의 관련도 점수 `-1.0`을 근거 충분성 기준으로 적용했다. Native RAG와 Agentic RAG 모두 약한 최종 근거를 답변 대신 보류한다. 개발 평가에서 Abstention Recall `1.000`, Unsafe Answer Rate `0.000`, Trajectory Accuracy `1.000`을 기록했고 답변 가능한 질문의 False Abstention은 발생하지 않았다. 별도 holdout이 아직 없으므로 threshold의 최종 확정은 최종 회귀 평가에서 수행한다.
+
+최신 성능 우선 검증 `20260818T000449Z-ed247a7`에서는 약한 보조 페이지를 제외하고 질문의 원인·결과·역할·경로를 직접 설명하는 근거를 우선했다. Page Match Accuracy `1.000`, Required Fact Coverage `0.958`, Case Pass Rate `0.929`, Unsafe Answer Rate `0.000`으로 MVP Gate를 통과했다. 다음 최적화 순서는 Q12 다중 단계 근거 복원과 Rerank p95 `6.1초` 단축이다.
 
 ## 14. Release Gate
 

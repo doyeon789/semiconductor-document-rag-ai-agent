@@ -1,8 +1,8 @@
-# 14-Day Sprint Runbook
+# Quality & Performance Runbook
 
 ## 1. 사용 방법
 
-이 문서는 [Development Plan](./development-plan.md)의 압축 일정을 실제 일일 작업으로 변환한다. Day 1~8에 기능 완성본을 만들고 Day 9~14에 실패 사례와 품질을 개선한다.
+이 문서는 [Development Plan](./development-plan.md)을 기능·품질 목표 단위의 실행 작업으로 변환한다. 날짜보다 측정 가능한 성능 Gate와 남은 실패 사례를 우선한다.
 
 매일 다음 순서를 따른다.
 
@@ -29,7 +29,7 @@
 
 ## 3. Core Build
 
-### Day 1 — 요구사항, 데이터 계약, 프로젝트 기반
+### 프로젝트 기반 — 요구사항과 데이터 계약
 
 #### 읽을 문서
 
@@ -66,7 +66,7 @@ data/eval/questions.jsonl
 .github/workflows/ci.yml
 ```
 
-#### Day 1 Gate
+#### 프로젝트 기반 Gate
 
 - [ ] clean environment에서 dependency 설치가 된다.
 - [ ] `/health/live`가 200을 반환한다.
@@ -75,7 +75,7 @@ data/eval/questions.jsonl
 - [ ] 최소 샘플 문서 5개와 질문 30개가 준비된다.
 - [ ] secret·라이선스 미확인 문서가 Git에 없다.
 
-### Day 2 — PDF, OCR, 표, Chunking
+### 문서 처리 — PDF, OCR, 표, Chunking
 
 #### 읽을 문서
 
@@ -96,7 +96,7 @@ data/eval/questions.jsonl
 - [ ] parser quality report를 생성한다.
 - [ ] text, scan, table fixture test를 작성한다.
 
-#### Day 2 Gate
+#### 문서 처리 Gate
 
 - [ ] 모든 Chunk가 DocumentVersion과 PDF 페이지로 역추적된다.
 - [ ] text PDF, scan PDF, table PDF fixture가 처리된다.
@@ -104,7 +104,7 @@ data/eval/questions.jsonl
 - [ ] 파싱 실패 페이지가 전체 job을 중단하지 않는다.
 - [ ] DB Chunk 수와 quality report가 일치한다.
 
-### Day 3 — Dense, BM25, Hybrid Retrieval
+### 검색 기반 — Dense, BM25, Hybrid Retrieval
 
 #### 읽을 문서
 
@@ -125,7 +125,7 @@ data/eval/questions.jsonl
 - [ ] Qdrant/OpenSearch 장애 fallback을 구현한다.
 - [ ] R1 Dense, R2 BM25, R3 Hybrid baseline을 실행한다.
 
-#### Day 3 Gate
+#### 검색 기반 Gate
 
 - [ ] 동일 질문에 Dense, BM25, Hybrid 결과를 비교할 수 있다.
 - [ ] exact 장비 코드와 의미 질문이 모두 평가된다.
@@ -133,7 +133,7 @@ data/eval/questions.jsonl
 - [ ] 한 backend 장애 시 degraded 검색이 동작한다.
 - [ ] baseline Recall@5, MRR, latency가 저장된다.
 
-### Day 4 — Reranking, Domain Search, Answer, Citation
+### 근거 답변 — Reranking, Domain Search, Answer, Citation
 
 #### 읽을 문서
 
@@ -155,7 +155,7 @@ data/eval/questions.jsonl
 - [ ] 표 질문 answer path를 구현한다.
 - [ ] R4 Expansion, R5 Reranker 평가를 실행한다.
 
-#### Day 4 Gate
+#### 근거 답변 Gate
 
 - [ ] R1~R5 검색 비교 결과가 있다.
 - [ ] 단일 문서, 비교, 표 질문이 페이지 Citation과 함께 동작한다.
@@ -163,7 +163,7 @@ data/eval/questions.jsonl
 - [ ] Citation quote가 해당 PDF 페이지에서 검증된다.
 - [ ] 검색·Citation MVP Gate의 현재 값과 부족한 항목이 기록된다.
 
-### Day 5 — Minimal Agentic RAG
+### 최소 Agentic RAG
 
 #### 읽을 문서
 
@@ -181,7 +181,7 @@ data/eval/questions.jsonl
 - [x] `/v1/agent/answers`와 재구성 가능한 trace를 제공한다.
 - [x] 첫 검색 성공, 재검색 성공, 보류, Citation 실패 경로를 테스트한다.
 
-#### Day 5 Gate
+#### 최소 Agentic RAG Gate
 
 - [x] Agent가 검색 결과에 따라 답변, 재검색 또는 보류를 선택한다.
 - [x] 무한 재검색이 최대 횟수로 차단된다.
@@ -189,7 +189,7 @@ data/eval/questions.jsonl
 - [x] 원문과 다른 Citation이 최종 답변에서 제거된다.
 - [x] trace로 검색어, 검색 모드와 종료 이유를 재구성할 수 있다.
 
-### Day 6 — LangGraph Agent
+### LangGraph Agent
 
 #### 읽을 문서
 
@@ -208,7 +208,7 @@ data/eval/questions.jsonl
 - [x] prompt injection 방어 규칙을 적용한다.
 - [x] 주요 edge와 termination path test를 작성한다.
 
-#### Day 6 Gate
+#### LangGraph Agent Gate
 
 - [x] 첫 검색 성공, 재검색 성공과 보류 경로가 통과한다.
 - [ ] 표 검색과 다중 문서 비교 경로는 후속 데이터 확장 범위로 남긴다.
@@ -217,7 +217,7 @@ data/eval/questions.jsonl
 - [x] invalid Citation과 인용으로 뒷받침되지 않는 Claim이 최종 답변에 남지 않는다.
 - [x] trace로 node와 tool 경로를 재구성할 수 있다.
 
-### Day 7 — 자동 평가와 관측성
+### 자동 평가와 관측성
 
 #### 읽을 문서
 
@@ -240,7 +240,7 @@ data/eval/questions.jsonl
 
 Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에서 제외했다. 대신 같은 실행을 재현하고 실패 단계를 확인하는 데 필요한 이벤트, 소요 시간, 상태를 `events.jsonl`에 기록한다.
 
-#### Day 7 Gate
+#### 자동 평가 Gate
 
 - [x] 한 명령으로 전체 evaluation report가 생성된다.
 - [x] Git SHA와 모델·설정 version이 report에 포함된다.
@@ -248,7 +248,7 @@ Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에�
 - [x] 실패 사례가 `failures.md`에 자동 정리된다.
 - [x] MVP Gate 통과 여부와 미달 항목이 명확하다.
 
-### Day 8 — UI, 배포, Demo, v0.1.0
+### UI와 로컬 Demo
 
 #### 읽을 문서
 
@@ -270,9 +270,9 @@ Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에�
 - [x] README에 로컬 실행법을 반영한다.
 - [ ] 데모 영상/GIF와 `v0.1.0` release note를 준비한다.
 
-문서 업로드 관리, Docker Compose, 외부 배포와 `v0.1.0` 공개는 미니 프로젝트의 Day 8 범위에서 제외한다. 고정된 공개 가능 PDF 한 개를 질문하고 Citation 페이지를 확인하는 데모에 집중하며, 성능 Gate를 개선한 뒤 릴리스를 준비한다.
+문서 업로드 관리, Docker Compose, 외부 배포와 `v0.1.0` 공개는 현재 미니 프로젝트 범위에서 제외한다. 고정된 공개 가능 PDF 한 개를 질문하고 Citation 페이지를 확인하는 데모에 집중하며, 성능 Gate를 개선한 뒤 릴리스를 준비한다.
 
-#### Day 8 Gate
+#### UI와 로컬 Demo Gate
 
 - [x] 현재 로컬 환경에서 문서화된 명령으로 실행된다.
 - [x] 사용자가 ask → answer → citation page 확인을 완료할 수 있다.
@@ -282,7 +282,7 @@ Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에�
 
 ## 4. Hardening
 
-### Day 9 — Retrieval Error Analysis
+### Retrieval Error Analysis
 
 - [x] 현재 평가셋에서 확인 가능한 실패를 `missed`, `low_rank`, `wrong_page`, `rerank_regression`으로 자동 분류한다.
 - [x] BM25·Dense·Hybrid 후보 단계와 Reranker 단계를 비교해 순위 회귀를 찾는다.
@@ -294,9 +294,9 @@ Langfuse 연동은 외부 서비스 운영이 필요한 범위이므로 MVP에�
 
 현재 14개 개발 평가 케이스에는 다중 문서·표 질문이 없으므로 `wrong_document`, `table_miss`, `expansion_error` 분류는 해당 케이스를 추가할 때 확장한다. Retrieval 지표가 이미 Gate를 통과해 threshold와 top-k는 변경하지 않았고, holdout 조정도 하지 않았다.
 
-Day 7 기준 실행과 Day 9 로컬 검증 실행의 비교는 다음과 같다.
+초기 자동 평가와 검색 오류 분석 후 로컬 검증의 비교는 다음과 같다.
 
-| 항목 | Day 7 기준 | Day 9 검증 | 변화 |
+| 항목 | 초기 기준 | 오류 분석 후 | 변화 |
 | --- | ---: | ---: | ---: |
 | Rerank Page Hit@5 | 1.000 | 1.000 | 0.000 |
 | Rerank Recall@5 | 0.917 | 0.917 | 0.000 |
@@ -305,11 +305,11 @@ Day 7 기준 실행과 Day 9 로컬 검증 실행의 비교는 다음과 같다.
 | Page Match Accuracy | 0.417 | 0.597 | +0.180 |
 | Case Pass Rate | 0.071 | 0.357 | +0.286 |
 
-남은 `low_rank` 4건, `rerank_regression` 3건과 Citation에 정답 외 페이지가 섞이는 7건은 자동 보고서에서 확인할 수 있다. 답변 불가능 질문의 Unsafe Answer는 Day 11 범위다.
+남은 `low_rank` 4건, `rerank_regression` 3건과 Citation에 정답 외 페이지가 섞이는 7건은 자동 보고서에서 확인할 수 있다. 답변 불가능 질문의 Unsafe Answer는 Citation·Abstention 안정화 범위에서 처리한다.
 
 - Gate: 현재 평가셋에서 관찰된 retrieval failure 유형의 자동 분류와 regression test가 모두 동작한다.
 
-### Day 10 — PDF, OCR, Table Edge Cases
+### PDF, OCR, Table Edge Cases
 
 - [ ] 파싱 실패 문서를 fixture로 축소한다.
 - [ ] 회전, 2단, 반복 header/footer, 다중 페이지 표를 검증한다.
@@ -317,7 +317,7 @@ Day 7 기준 실행과 Day 9 로컬 검증 실행의 비교는 다음과 같다.
 - [ ] parser 변경이 기존 golden fixture를 깨지 않는지 확인한다.
 - Gate: 새 parser fix마다 fixture와 quality metric이 있다.
 
-### Day 11 — Citation & Abstention Hardening
+### Citation & Abstention Hardening
 
 - [x] wrong page, stale version, quote mismatch를 집중 검증한다.
 - [x] unsupported Claim이 repair 또는 제거되는지 확인한다.
@@ -327,7 +327,7 @@ Day 7 기준 실행과 Day 9 로컬 검증 실행의 비교는 다음과 같다.
 
 Reranker의 점수는 BM25 점수와 척도가 다르므로 Evidence Pack에 검색 방식을 기록하고, Reranker 최고 점수가 `-1.0` 미만일 때만 근거 부족으로 처리한다. 현재 평가셋에서 답변 불가능 Q13은 `-1.445`, 확인한 답변 가능 질문은 `-0.414` 이상으로 분리됐다. Native RAG와 Agentic RAG가 같은 충분성 판단을 사용한다.
 
-| 항목 | Day 9 | Day 11 검증 | 변화 |
+| 항목 | 오류 분석 후 | Citation 안정화 후 | 변화 |
 | --- | ---: | ---: | ---: |
 | Required Fact Coverage | 0.917 | 0.917 | 0.000 |
 | Citation Precision | 1.000 | 1.000 | 0.000 |
@@ -341,24 +341,25 @@ Citation Precision·Coverage·Quote Match와 Unsafe Answer Gate는 통과했다.
 
 - Gate: Unsafe Answer Rate Gate는 통과했고, Citation Page Match Gate는 미달 상태가 명확히 기록됐다.
 
-### Day 12 — Agent & MCP Reliability
+### 다중 단계 근거 복원
 
-- [ ] MCP timeout, invalid schema, partial backend failure를 주입한다.
+- [ ] Q12처럼 두 페이지에 걸친 원인→결과 경로를 하나의 답변에 보존한다.
+- [ ] 다중 페이지를 허용할 때 Page Match와 Citation Precision이 회귀하지 않게 한다.
 - [ ] 중복 Query Rewrite와 불필요한 Tool Call을 줄인다.
 - [ ] max step과 timeout 직전 종료 응답을 확인한다.
-- [ ] trajectory metric과 평균 비용을 비교한다.
-- Gate: 필수 trajectory case와 오류 복구 case가 모두 통과한다.
+- Gate: Required Fact Coverage `1.000`, Page Match Accuracy `1.000`, Unsafe Answer Rate `0.000`을 함께 유지한다.
 
-### Day 13 — Performance, Deployment, Documentation
+### 검색 지연과 실행 성능
 
-- [ ] search/answer p95 latency를 측정한다.
+- [x] search/answer p95 latency를 측정한다.
+- [ ] 현재 Rerank p95 약 `6.1초`를 `2초` 이하로 줄인다.
 - [ ] cold start와 model cache 문제를 확인한다.
 - [ ] clean Docker startup과 migration/alias bootstrap을 검증한다.
 - [ ] Data Policy publication checklist를 실행한다.
 - [ ] 문서의 명령·링크·환경변수를 다시 검증한다.
 - Gate: 다른 환경에서 README만 보고 데모를 실행할 수 있다.
 
-### Day 14 — Final Release Approval
+### 최종 회귀 평가와 Release Approval
 
 - [ ] holdout을 포함한 final evaluation을 다시 실행한다.
 - [ ] 모든 Release Gate를 확인한다.
@@ -390,7 +391,7 @@ Citation Precision·Coverage·Quote Match와 Unsafe Answer Gate는 통과했다.
 ## 6. Daily Report Template
 
 ```markdown
-# Day N Report
+# Performance Report
 
 ## 목표
 
@@ -407,6 +408,6 @@ Citation Precision·Coverage·Quote Match와 Unsafe Answer Gate는 통과했다.
 
 ## 알려진 문제
 
-## 다음 Day 시작점
+## 다음 성능 병목
 ```
 

@@ -66,4 +66,4 @@ output/pdf/semiconductor_8_processes_chunking_guide_ko_v1_3.pdf
 - 원문 PDF 페이지는 새 브라우저 탭에서 열리며 문장 highlight는 지원하지 않는다.
 - 답변은 생성형 LLM 문장이 아니라 선택된 원문 발췌다.
 - 첫 Dense 또는 Rerank 요청은 로컬 모델 준비 때문에 느릴 수 있다.
-- 검색된 페이지가 정답 페이지인지 판단하는 정확도와 답변 보류 기준은 Day 9·11에서 개선한다.
+- 최신 개발 평가에서 Page Match Accuracy `1.000`, Abstention Recall `1.000`을 기록했지만 별도 holdout 검증은 남아 있다.

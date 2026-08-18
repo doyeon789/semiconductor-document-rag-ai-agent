@@ -173,7 +173,7 @@ flowchart LR
 .\.venv\Scripts\python.exe scripts\evaluate_rag.py
 ```
 
-이 명령은 retrieval, 답변 품질, Citation, 답변 보류, Agent trajectory를 한 번에 평가하고 `output/evaluation/{run_id}/`에 manifest, 집계·slice 지표, 검색 실패 분석, 구조화 실행 로그를 생성합니다. Day 11 검증에서 Rerank Page Hit@5 `1.000`, Recall@5 `0.917`, MRR `0.819`, Required Fact Coverage `0.917`, Page Match Accuracy `0.597`, Abstention Recall `1.000`, Unsafe Answer Rate `0.000`을 기록했습니다. 현재 남은 주요 품질 제한은 정답 외 Evidence 페이지가 Citation에 포함되는 문제입니다.
+이 명령은 retrieval, 답변 품질, Citation, 답변 보류, Agent trajectory를 한 번에 평가하고 `output/evaluation/{run_id}/`에 manifest, 집계·slice 지표, 검색 실패 분석, 구조화 실행 로그를 생성합니다. 최신 검증 `20260818T000449Z-ed247a7`에서 Rerank Page Hit@5 `1.000`, Recall@5 `0.917`, MRR `0.819`, Required Fact Coverage `0.958`, Page Match Accuracy `1.000`, Case Pass Rate `0.929`, Abstention Recall `1.000`, Unsafe Answer Rate `0.000`을 기록해 MVP Gate를 통과했습니다. 현재 남은 주요 품질 제한은 두 페이지에 걸친 Q12 원인→결과 경로의 사실 커버리지이며, 주요 성능 병목은 Rerank p95 약 `6.1초`입니다.
 
 ## Project Priorities
 

@@ -5,8 +5,8 @@
 ## 권장 읽기 순서
 
 1. [Requirements](./requirements.md) — 범위, 사용자 시나리오, 기능·비기능 요구사항
-2. [Development Plan](./development-plan.md) — 14일 실행 일정과 작업 순서
-3. [Sprint Runbook](./sprint-runbook.md) — Day 1~14 실행 체크리스트와 일일 Gate
+2. [Development Plan](./development-plan.md) — 품질·성능 목표와 작업 순서
+3. [Quality & Performance Runbook](./sprint-runbook.md) — 기능별 체크리스트와 성능 Gate
 4. [Architecture](./architecture.md) — 전체 시스템과 컴포넌트 경계
 5. [Data Model](./data-model.md) — 문서, 페이지, 청크, 표, 인용 데이터 계약
 6. [Ingestion Design](./ingestion-design.md) — PDF·OCR·표 처리 파이프라인

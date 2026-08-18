@@ -246,65 +246,60 @@ MVP에서는 [ADR-0006](./adr/0006-in-process-agent-tools.md)에 따라 내부 t
 - PostgreSQL 및 Object Storage 스키마
 - 원본 PDF 저장과 접근 권한 정책
 
-## 4. 14-Day Intensive Sprint
+## 4. Quality & Performance Milestones
 
-핵심 기능은 8일 안에 완성하고, 남은 6일은 검색·인용·Agent 품질을 높이고 최종 릴리스를 안정화하는 데 사용한다.
+달력 일정 대신 평가 결과에서 가장 큰 병목을 먼저 처리한다. 기능 범위는 고정하고 Page Match, 사실 커버리지, 안전성, 지연 시간을 순서대로 개선한다.
 
-### Core Build: Day 1-8
+### Capability Foundation
 
-| Day | 통합 범위 | 주요 작업 | 종료 조건 |
+| 영역 | 상태 | 종료 조건 |
+| --- | --- | --- |
+| 프로젝트 기반 | 완료 | FastAPI health check, CI, 데이터 계약과 샘플 문서가 준비된다. |
+| PDF 처리 | 완료 | 모든 Chunk와 Citation을 원문 PDF 페이지로 역추적한다. |
+| 검색 | 완료 | Dense, BM25, Hybrid, Rerank를 동일 평가셋으로 비교한다. |
+| 근거 답변 | 완료 | 답변·보류·페이지 Citation과 quote 검증이 동작한다. |
+| Agent | 완료 | LangGraph가 검색, 재검색, 답변 또는 보류 경로를 유한하게 실행한다. |
+| 자동 평가 | 완료 | 검색·답변·인용·Agent 리포트와 재현 가능한 trace가 생성된다. |
+| 로컬 Demo | 완료 | FastAPI와 Streamlit에서 질문부터 PDF 페이지 확인까지 실행된다. |
+
+### Performance Backlog
+
+| 우선순위 | 집중 영역 | 현재 값·문제 | 종료 조건 |
 | ---: | --- | --- | --- |
-| 1 | 기존 Day 1+2 | 요구사항, Acceptance Criteria, ADR, 프로젝트 구조, CI, 데이터 스키마, 샘플 문서와 평가 질문 | FastAPI health check와 CI가 통과하고 샘플 문서·평가 질문이 준비된다. |
-| 2 | 기존 Day 3+4 | PDF 파서, 페이지 추적, Chunking, OCR fallback, 표·레이아웃 처리 | 텍스트·스캔·표 샘플을 처리하고 모든 Chunk를 원문 페이지로 역추적한다. |
-| 3 | 기존 Day 5+6 | Embedding, Qdrant, Dense Search, OpenSearch BM25, Hybrid Fusion | Dense, BM25, Hybrid 검색을 동일 API와 데이터셋으로 비교할 수 있다. |
-| 4 | 기존 Day 7+8+9 | Reranker, 반도체 용어 확장, 검색 평가, Grounded Answer, 페이지 인용, 다중 문서 비교, 표 검색, 답변 보류 | 검색 지표가 생성되고 비교·표·답변 불가 시나리오가 페이지 인용과 함께 동작한다. |
-| 5 | 기존 Day 10 | Retrieval·Document·Citation MCP Server | 각 MCP 도구가 독립적으로 호출되고 통합 테스트를 통과한다. |
-| 6 | 기존 Day 11 | LangGraph Agent, Function Calling, Query Rewrite, 재검색 | 도구 선택부터 최종 답변 또는 답변 보류까지 Agent 흐름이 완주한다. |
-| 7 | 기존 Day 12 | 자동 평가, Langfuse, 회귀 테스트, 운영 지표 | 검색·답변·인용·Agent 평가 리포트와 trace가 생성된다. |
-| 8 | 기존 Day 13+14 | Streamlit UI, Docker, 배포, 버그 수정, 데모, README, `v0.1.0` 릴리스 | 외부에서 실행 가능한 데모와 재현 가능한 릴리스가 공개된다. |
+| P0 | 다중 단계 근거 복원 | Q12가 두 페이지의 인과 사실 중 하나만 답변 | Required Fact Coverage `1.000`과 Page Match `1.000` 동시 유지 |
+| P1 | Rerank 지연 | p95 약 `6.1초` | 동일 Retrieval 지표에서 p95 `2초` 이하 |
+| P2 | Holdout 검증 | 개발 평가 14건만 존재 | 별도 holdout에서 threshold 과적합 여부 확인 |
+| P3 | PDF·OCR·표 edge case | 현재 PDF 중심 fixture | 대표 실패 문서를 regression fixture로 추가 |
+| P4 | Release 승인 | 로컬 Demo와 개발 평가 통과 | clean clone 재현, 전체 평가, 릴리스 문서 확정 |
 
-### Hardening: Day 9-14
+### Execution Rules
 
-| Day | 집중 영역 | 종료 조건 |
-| ---: | --- | --- |
-| 9 | 검색 오류 분석 및 튜닝 | 실패 질문을 유형별로 분류하고 Hybrid/Reranker 설정을 재평가한다. |
-| 10 | PDF·OCR·표 edge case | 대표 실패 문서를 regression fixture로 추가하고 파싱 오류를 수정한다. |
-| 11 | 인용 및 답변 보류 강화 | 잘못된 페이지 인용과 근거 없는 답변에 대한 회귀 테스트가 통과한다. |
-| 12 | Agent·MCP 안정화 | 불필요한 Tool Call, 무한 재검색, timeout, 도구 실패 경로를 검증한다. |
-| 13 | 성능·배포·문서 검수 | p95 latency, 오류 처리, Docker 재현성, 설치 문서를 검증한다. |
-| 14 | 최종 버퍼 및 릴리스 승인 | 전체 평가와 데모 시나리오를 다시 실행하고 최종 태그를 확정한다. |
+- 성능 변경 전 실패 evaluation case 또는 회귀 테스트를 먼저 고정한다.
+- 한 번에 하나의 품질 지표 또는 병목만 개선한다.
+- Page Match, Citation Precision, Unsafe Answer Rate의 회귀를 허용하지 않는다.
+- 모든 작업은 동작하는 커밋과 테스트·평가 결과로 종료한다.
 
-### Sprint Rules
+## 5. Outcome-based GitHub Issues
 
-- Day 1 종료 후 핵심 기술 스택을 변경하지 않는다.
-- Day 2 종료 후 파싱 데이터 계약을 변경하지 않는다.
-- Day 4 종료 후 신규 핵심 기능을 추가하지 않는다.
-- Day 8에 기능 완성본을 배포한다.
-- Day 9-14에는 실패 사례, 평가 점수, 안정성 개선만 수행한다.
-- 모든 Day는 동작하는 커밋과 테스트 결과로 종료한다.
-
-## 5. Initial GitHub Issues
-
-- [ ] `docs/chore: define requirements, schemas and project foundation`
-- [ ] `feat: build page-aware PDF, OCR and table ingestion pipeline`
-- [ ] `feat: implement dense, BM25 and hybrid retrieval`
-- [ ] `feat: add reranking, grounded answers and multi-document analysis`
-- [ ] `feat: expose retrieval, document and citation MCP servers`
-- [ ] `feat: orchestrate agentic retrieval with LangGraph`
-- [ ] `eval: automate retrieval, citation and agent evaluation`
-- [ ] `release: build UI, deploy demo and publish v0.1.0`
+- [x] `docs/chore: define requirements, schemas and project foundation`
+- [x] `feat: build page-aware PDF ingestion pipeline`
+- [x] `feat: implement local BM25, Dense, Hybrid and Rerank retrieval`
+- [x] `feat: add grounded answers and page Citation`
+- [x] `feat: orchestrate agentic retrieval with LangGraph`
+- [x] `eval: automate retrieval, citation and agent evaluation`
+- [x] `feat: connect the local Streamlit demo`
+- [ ] `perf: recover multi-page causal evidence without citation regression`
+- [ ] `perf: reduce reranker p95 latency`
+- [ ] `release: verify clean setup and publish v0.1.0`
 
 ## 6. Issue Dependency
 
 ```text
-Issue 1
-  → Issue 2
-  → Issue 3
-  → Issue 4
-  → Issue 5
-  → Issue 6
-  → Issue 7
-  → Issue 8
+다중 단계 근거 복원
+  → Rerank 지연 개선
+  → Holdout 전체 평가
+  → clean setup 검증
+  → v0.1.0 승인
 ```
 
-각 Issue는 하루 안에 종료 가능한 Vertical Slice로 구성한다. Issue 8 이후 Day 9-14의 개선 사항은 평가 결과에서 발견된 실패 유형별 bug 또는 hardening Issue로 추가한다.
+각 Issue는 하나의 평가 병목을 해결하는 Vertical Slice로 구성한다. 새로운 작업은 평가 결과에서 발견된 실패 유형별 bug, performance 또는 hardening Issue로 추가한다.

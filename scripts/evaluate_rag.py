@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Build the local corpus and generate every Day 7 evaluation artifact."""
+    """Build the local corpus and generate every evaluation artifact."""
     args = parse_args()
     if args.top_k < 1:
         raise ValueError("top_k must be positive")
