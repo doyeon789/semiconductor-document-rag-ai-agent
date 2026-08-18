@@ -10,12 +10,13 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from semiconductor_rag.answering.evidence import (
+    MIN_RERANK_RELEVANCE_SCORE,
     EvidenceBlock,
     EvidencePack,
     has_sufficient_evidence,
 )
 from semiconductor_rag.domain import CitationSupport
-from semiconductor_rag.retrieval import tokenize_search_text
+from semiconductor_rag.retrieval import SearchMode, tokenize_search_text
 
 SENTENCE_PATTERN = re.compile(r"[^.!?。\n]+[.!?。]?")
 CONCEPT_PATTERN = re.compile(r"[A-Za-z0-9]+(?:[./-][A-Za-z0-9]+)*|[가-힣]{2,}")
@@ -36,6 +37,10 @@ QUESTION_CONCEPTS = frozenset(
     }
 )
 MIN_MARGINAL_CONCEPT_RATIO = 0.2
+MAX_RERANK_SCORE_GAP = 0.5
+RELATION_TERMS = ("역할", "원인", "결과", "영향", "경로", "차이", "순서")
+MAPPING_QUERY_TERMS = ("역할", "경로")
+CAUSAL_PATH_MARKERS = ("cause → effect", "cause->effect", "원인 → 결과")
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +150,7 @@ def build_grounded_answer(
     evidence_pack: EvidencePack,
     max_claims: int = 3,
     max_quote_characters: int = 320,
+    max_evidence_pages: int = 1,
 ) -> GroundedAnswer:
     """Create a citation-verified extractive answer from retrieved evidence.
 
@@ -156,6 +162,8 @@ def build_grounded_answer(
         Maximum number of page-grounded claims to return.
     max_quote_characters : int, default=320
         Maximum characters retained from each exact source sentence.
+    max_evidence_pages : int, default=1
+        Maximum number of source pages allowed in one compact answer.
 
     Returns
     -------
@@ -165,13 +173,15 @@ def build_grounded_answer(
     Raises
     ------
     ValueError
-        If either configured limit is not positive or citation verification
+        If a configured limit is not positive or citation verification
         fails unexpectedly.
     """
     if max_claims < 1:
         raise ValueError("max_claims must be positive")
     if max_quote_characters < 1:
         raise ValueError("max_quote_characters must be positive")
+    if max_evidence_pages < 1:
+        raise ValueError("max_evidence_pages must be positive")
     if not has_sufficient_evidence(evidence_pack):
         return _build_abstention(len(evidence_pack.blocks))
 
@@ -179,6 +189,7 @@ def build_grounded_answer(
         evidence_pack,
         max_claims,
         max_quote_characters,
+        max_evidence_pages,
     )
     claims: list[GroundedClaim] = []
     citations: list[GroundedCitation] = []
@@ -232,6 +243,7 @@ def _select_answer_candidates(
     evidence_pack: EvidencePack,
     max_claims: int,
     max_quote_characters: int,
+    max_evidence_pages: int,
 ) -> tuple[_AnswerCandidate, ...]:
     """Select quotes that cover distinct query concepts without over-citing.
 
@@ -243,6 +255,8 @@ def _select_answer_candidates(
         Maximum number of selected answer claims.
     max_quote_characters : int
         Maximum exact quote length.
+    max_evidence_pages : int
+        Maximum distinct source pages permitted in the answer.
 
     Returns
     -------
@@ -279,22 +293,24 @@ def _select_answer_candidates(
                 concepts=frozenset(),
             ),
         )
+    eligible_evidence = _eligible_evidence_ranks(evidence_pack)
     concepts_by_evidence = {
         evidence_rank: {
-            concept
-            for concept in query_concepts
-            if concept
-            in _select_quote(
-                evidence_pack.query,
-                evidence.text,
-                max_quote_characters,
-            ).casefold()
+            concept for concept in query_concepts if concept in evidence.text.casefold()
         }
         for evidence_rank, evidence in enumerate(evidence_pack.blocks)
+        if evidence_rank in eligible_evidence
     }
     ranked_evidence = sorted(
         concepts_by_evidence,
-        key=lambda rank: (-len(concepts_by_evidence[rank]), rank),
+        key=lambda rank: (
+            -_relation_support_score(
+                evidence_pack.query,
+                evidence_pack.blocks[rank].text,
+            ),
+            -len(concepts_by_evidence[rank]),
+            rank,
+        ),
     )
     selected_evidence: set[int] = set()
     covered_by_evidence: set[str] = set()
@@ -310,7 +326,7 @@ def _select_answer_candidates(
         selected_evidence.add(evidence_rank)
         covered_by_evidence.update(concepts_by_evidence[evidence_rank])
         if (
-            len(selected_evidence) == max_claims
+            len(selected_evidence) == min(max_claims, max_evidence_pages)
             or covered_by_evidence == query_concepts
         ):
             break
@@ -354,6 +370,70 @@ def _select_answer_candidates(
             concepts=frozenset(),
         ),
     )
+
+
+def _eligible_evidence_ranks(evidence_pack: EvidencePack) -> set[int]:
+    """Return page ranks that remain competitive after retrieval.
+
+    Parameters
+    ----------
+    evidence_pack : EvidencePack
+        Ranked evidence with optional Reranker scores.
+
+    Returns
+    -------
+    set[int]
+        Zero-based ranks eligible for final answer selection.
+    """
+    if evidence_pack.retrieval_mode is not SearchMode.RERANK:
+        return set(range(len(evidence_pack.blocks)))
+    strongest_score = evidence_pack.blocks[0].retrieval_score
+    minimum_score = max(
+        MIN_RERANK_RELEVANCE_SCORE,
+        strongest_score - MAX_RERANK_SCORE_GAP,
+    )
+    return {
+        rank
+        for rank, evidence in enumerate(evidence_pack.blocks)
+        if evidence.retrieval_score >= minimum_score
+    }
+
+
+def _relation_support_score(query: str, text: str) -> int:
+    """Score direct relational explanations requested by a question.
+
+    Parameters
+    ----------
+    query : str
+        User question containing possible relation terms.
+    text : str
+        Candidate evidence page text.
+
+    Returns
+    -------
+    int
+        Count of requested relation terms plus a mapping bonus for arrows.
+    """
+    normalized_query = query.casefold()
+    normalized_text = text.casefold()
+    score = sum(
+        term in normalized_query and term in normalized_text for term in RELATION_TERMS
+    )
+    requested_relations = {term for term in RELATION_TERMS if term in normalized_query}
+    if len(requested_relations) > 1 and any(
+        requested_relations.issubset(
+            {term for term in RELATION_TERMS if term in line.casefold()}
+        )
+        for line in text.splitlines()
+    ):
+        score += 2
+    if any(term in normalized_query for term in MAPPING_QUERY_TERMS) and "→" in text:
+        score += 2
+    if "경로" in normalized_query and any(
+        marker in normalized_text for marker in CAUSAL_PATH_MARKERS
+    ):
+        score += 3
+    return score
 
 
 def _split_sentences(text: str) -> tuple[str, ...]:

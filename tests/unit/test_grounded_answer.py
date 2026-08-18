@@ -3,6 +3,8 @@
 from hashlib import sha256
 from uuid import UUID
 
+import pytest
+
 from semiconductor_rag.answering import (
     EvidenceSufficiency,
     TerminationReason,
@@ -177,7 +179,7 @@ def test_grounded_answer_keeps_pages_that_add_query_concepts() -> None:
         "공정 안내서",
     )
 
-    result = build_grounded_answer(pack, max_claims=3)
+    result = build_grounded_answer(pack, max_claims=3, max_evidence_pages=2)
 
     assert {citation.page_number for citation in result.citations} == {16, 17}
     assert all(citation.page_number != 59 for citation in result.citations)
@@ -203,3 +205,110 @@ def test_grounded_answer_can_select_multiple_sentences_from_one_page() -> None:
 
     assert len(result.claims) == 2
     assert [citation.page_number for citation in result.citations] == [8, 8]
+
+
+def test_grounded_answer_rejects_non_positive_page_limit() -> None:
+    """Reject an invalid source-page limit before answer selection."""
+    pack = build_evidence_pack(
+        "산화 조건은?",
+        (_make_hit("산화 조건을 설명한다."),),
+        "doc-1",
+        "공정 안내서",
+    )
+
+    with pytest.raises(ValueError, match="max_evidence_pages"):
+        build_grounded_answer(pack, max_evidence_pages=0)
+
+
+def test_grounded_answer_keeps_strong_reranked_page_within_score_margin() -> None:
+    """Do not replace strong evidence with a much weaker keyword-heavy page."""
+    pack = build_evidence_pack(
+        "산화 조건과 위험은?",
+        (
+            _make_hit("산화 공정의 직접 근거를 설명한다.", page=8, score=0.9),
+            _make_hit("산화 조건과 위험을 함께 나열한다.", page=9, score=0.2),
+        ),
+        "doc-1",
+        "공정 안내서",
+        retrieval_mode=SearchMode.RERANK,
+    )
+
+    result = build_grounded_answer(pack)
+
+    assert [citation.page_number for citation in result.citations] == [8]
+
+
+def test_grounded_answer_prefers_direct_role_mapping() -> None:
+    """Prefer an explicit role mapping over a generic role summary."""
+    pack = build_evidence_pack(
+        "이온 주입 에너지와 도즈 역할은?",
+        (
+            _make_hit("이온 주입 에너지와 도즈 역할을 설명한다.", page=22, score=1.0),
+            _make_hit(
+                "이온 주입에서 에너지 → 깊이 | 도즈 → 총 도펀트량이다.",
+                page=21,
+                score=0.7,
+            ),
+        ),
+        "doc-1",
+        "공정 안내서",
+        retrieval_mode=SearchMode.RERANK,
+    )
+
+    result = build_grounded_answer(pack)
+
+    assert [citation.page_number for citation in result.citations] == [21]
+
+
+def test_grounded_answer_prefers_exact_cause_and_result_evidence() -> None:
+    """Prefer a page that states both requested causal relation terms."""
+    pack = build_evidence_pack(
+        "패키지 warpage 원인과 결과는?",
+        (
+            _make_hit(
+                "패키지 warpage 원인 분석 원칙.\n관찰 결과를 연결한다.",
+                page=62,
+                score=-0.3,
+            ),
+            _make_hit(
+                "고장 모드 | 결과 | 가능한 원인\nWarpage 패키지 휨을 설명한다.",
+                page=31,
+                score=-0.6,
+            ),
+        ),
+        "doc-1",
+        "공정 안내서",
+        retrieval_mode=SearchMode.RERANK,
+    )
+
+    result = build_grounded_answer(pack)
+
+    assert result.citations
+    assert all(citation.page_number == 31 for citation in result.citations)
+
+
+def test_grounded_answer_prefers_direct_failure_path_mapping() -> None:
+    """Prefer an explicit failure path even when it is ranked third."""
+    pack = build_evidence_pack(
+        "포토 결함이 금속배선 불량으로 이어지는 경로는?",
+        (
+            _make_hit(
+                "가공 → 포토 결함으로 이동하는 경로를 설명한다.",
+                page=7,
+                score=-0.04,
+            ),
+            _make_hit("금속배선 결함과 전기 경로를 설명한다.", page=24, score=-0.22),
+            _make_hit(
+                "CROSS-PROCESS · CAUSE → EFFECT\n포토 결함의 전파를 설명한다.",
+                page=62,
+                score=-0.47,
+            ),
+        ),
+        "doc-1",
+        "공정 안내서",
+        retrieval_mode=SearchMode.RERANK,
+    )
+
+    result = build_grounded_answer(pack)
+
+    assert [citation.page_number for citation in result.citations] == [62]

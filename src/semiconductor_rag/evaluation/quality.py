@@ -15,6 +15,10 @@ from semiconductor_rag.evaluation.retrieval import RetrievalCase
 from semiconductor_rag.retrieval import SearchMode, tokenize_search_text
 
 NUMBER_PATTERN = re.compile(r"[-+]?\d+(?:[.,]\d+)?(?:\s*[%℃°A-Za-zΩ/]+)?")
+KOREAN_TERM_PATTERN = re.compile(r"^[가-힣]{4,}$")
+TECHNICAL_FACT_ALIASES = {
+    "sheet resistance": ("sheet r", "시트저항"),
+}
 
 
 class EvaluationAgent(Protocol):
@@ -347,6 +351,19 @@ def _fact_present(required_fact: str, answer_text: str) -> bool:
     normalized_answer = " ".join(answer_text.casefold().split())
     if normalized_fact in normalized_answer:
         return True
+    compact_answer = "".join(normalized_answer.split())
+    if "".join(normalized_fact.split()) in compact_answer:
+        return True
+    aliases = TECHNICAL_FACT_ALIASES.get(normalized_fact, ())
+    if any("".join(alias.split()) in compact_answer for alias in aliases):
+        return True
+    if KOREAN_TERM_PATTERN.fullmatch(normalized_fact):
+        fragments = tuple(
+            normalized_fact[index : index + 2]
+            for index in range(0, len(normalized_fact), 2)
+        )
+        if all(fragment in compact_answer for fragment in fragments):
+            return True
     fact_tokens = {
         token
         for token in tokenize_search_text(required_fact)

@@ -276,3 +276,43 @@ def test_numeric_accuracy_requires_exact_number_and_unit() -> None:
 
     assert result.numeric_accuracy == 0.0
     assert "numeric_mismatch" in result.cases[0].failure_reasons
+
+
+def test_fact_coverage_ignores_pdf_line_breaks_inside_korean_terms() -> None:
+    """Treat a line-wrapped Korean technical term as the same required fact."""
+    question = "NA를 높이면 초점심도는?"
+    answer = "심도는 줄어들어 초점\n제어가 필요하다."
+    case = RetrievalCase(
+        id="Q1",
+        query=question,
+        expected_pages=[8],
+        required_facts=["초점심도"],
+    )
+
+    result = evaluate_quality(
+        QualityTestAgent({question: _make_run(question, answer)}),
+        [case],
+        {8: answer},
+    )
+
+    assert result.required_fact_coverage == 1.0
+
+
+def test_fact_coverage_accepts_documented_technical_alias() -> None:
+    """Accept the source's standard abbreviation for a required metric name."""
+    question = "sheet resistance 단위는?"
+    answer = "Sheet R 시트저항의 대표 단위는 Ω/□이다."
+    case = RetrievalCase(
+        id="Q1",
+        query=question,
+        expected_pages=[8],
+        required_facts=["sheet resistance", "단위"],
+    )
+
+    result = evaluate_quality(
+        QualityTestAgent({question: _make_run(question, answer)}),
+        [case],
+        {8: answer},
+    )
+
+    assert result.required_fact_coverage == 1.0
