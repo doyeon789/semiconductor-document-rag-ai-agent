@@ -1,0 +1,131 @@
+schema_version: 1
+corpus_id: ai-security-guides-v1
+title: AI Security and Risk Management Guides
+description: >-
+  Official Korean and English PDF guides for evaluating multilingual,
+  multi-document, page-grounded RAG.
+default_output_dir: data/raw/ai-security
+
+sources:
+  - id: kisa-ai-security-guide-corrected-2026
+    title: 인공지능(AI) 보안 안내서 (정오 수정본)
+    publisher: 한국인터넷진흥원 (KISA)
+    language: ko-KR
+    version: 2026-03-13-corrected
+    published_at: "2025-12-10"
+    updated_at: "2026-03-13"
+    landing_page_url: https://www.kisa.or.kr/2060204/form?lang_type=KO&page=13&postSeq=19
+    download_url: null
+    filename: kisa_ai_security_guide_ko_2026_corrected.pdf
+    expected_page_count: null
+    expected_sha256: null
+    license:
+      identifier: NOASSERTION
+      reference_url: null
+      redistribution: verify-before-redistribution
+      notice: >-
+        Public download is available from KISA. Keep the PDF outside Git and
+        verify the applicable Gonggong Nuri or copyright terms before
+        redistributing the original file.
+
+  - id: kisa-ai-threat-response-manual-2026
+    title: AI 보안 위협 대응 매뉴얼
+    publisher: 한국인터넷진흥원 (KISA)
+    language: ko-KR
+    version: "2026-07-07"
+    published_at: "2026-07-07"
+    updated_at: null
+    landing_page_url: https://www.kisa.or.kr/401/form?lang_type=KO&postSeq=3712
+    download_url: null
+    filename: kisa_ai_threat_response_manual_ko_2026.pdf
+    expected_page_count: null
+    expected_sha256: null
+    license:
+      identifier: NOASSERTION
+      reference_url: null
+      redistribution: verify-before-redistribution
+      notice: >-
+        Public download is available from KISA. Keep the PDF outside Git and
+        verify the applicable Gonggong Nuri or copyright terms before
+        redistributing the original file.
+
+  - id: kisa-ai-red-teaming-guide-2026
+    title: AI 보안 레드티밍 가이드
+    publisher: 한국인터넷진흥원 (KISA)
+    language: ko-KR
+    version: "2026-07-07"
+    published_at: "2026-07-07"
+    updated_at: null
+    landing_page_url: https://www.kisa.or.kr/401/form?page=1&postSeq=3713
+    download_url: null
+    filename: kisa_ai_red_teaming_guide_ko_2026.pdf
+    expected_page_count: null
+    expected_sha256: null
+    license:
+      identifier: NOASSERTION
+      reference_url: null
+      redistribution: verify-before-redistribution
+      notice: >-
+        Public download is available from KISA. Keep the PDF outside Git and
+        verify the applicable Gonggong Nuri or copyright terms before
+        redistributing the original file.
+
+  - id: nist-ai-rmf-1-0
+    title: Artificial Intelligence Risk Management Framework (AI RMF 1.0)
+    publisher: National Institute of Standards and Technology (NIST)
+    language: en-US
+    version: NIST-AI-100-1
+    published_at: "2023-01-26"
+    updated_at: null
+    landing_page_url: https://doi.org/10.6028/NIST.AI.100-1
+    download_url: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
+    filename: nist_ai_rmf_1_0_en.pdf
+    expected_page_count: 48
+    expected_sha256: 7576edb531d9848825814ee88e28b1795d3a84b435b4b797d3670eafdc4a89f1
+    license:
+      identifier: US-PD
+      reference_url: https://www.nist.gov/nist-research-library/library-faqs
+      redistribution: allowed-with-attribution
+      notice: >-
+        NIST publications are generally public domain in the United States.
+        Credit the original NIST publication and preserve its citation.
+
+  - id: nist-generative-ai-profile-2024
+    title: Artificial Intelligence Risk Management Framework - Generative AI Profile
+    publisher: National Institute of Standards and Technology (NIST)
+    language: en-US
+    version: NIST-AI-600-1
+    published_at: "2024-07-26"
+    updated_at: null
+    landing_page_url: https://doi.org/10.6028/NIST.AI.600-1
+    download_url: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf
+    filename: nist_generative_ai_profile_en_2024.pdf
+    expected_page_count: 64
+    expected_sha256: 6e73620ab6b64e90ef2c04bf0e0d6246185a2f4b1b13cab0df494496cff89b6a
+    license:
+      identifier: US-PD
+      reference_url: https://www.nist.gov/nist-research-library/library-faqs
+      redistribution: allowed-with-attribution
+      notice: >-
+        NIST publications are generally public domain in the United States.
+        Credit the original NIST publication and preserve its citation.
+
+  - id: owasp-genai-llm-top-10-2026
+    title: OWASP GenAI LLM Top 10 2026
+    publisher: OWASP Foundation
+    language: en-US
+    version: "2026"
+    published_at: "2026-08-03"
+    updated_at: null
+    landing_page_url: https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/
+    download_url: https://genai.owasp.org/download/56857/
+    filename: owasp_genai_llm_top_10_en_2026.pdf
+    expected_page_count: 122
+    expected_sha256: ef87993a4e50ae9d83b41ff7a3d3e6320a82dfa8d4ec6bf98d0ce264b2e6108e
+    license:
+      identifier: CC-BY-SA-4.0
+      reference_url: https://creativecommons.org/licenses/by-sa/4.0/
+      redistribution: allowed-with-license
+      notice: >-
+        Attribute OWASP, link the CC BY-SA 4.0 license, indicate changes, and
+        apply the same license to adapted material when required.
