@@ -105,6 +105,10 @@ def test_catalog_records_multilingual_sources_and_license_status() -> None:
     assert len(catalog.sources) == 6
     assert {source.language for source in catalog.sources} == {"ko-KR", "en-US"}
     assert all(source.license.notice for source in catalog.sources)
+    assert all(source.download_url is not None for source in catalog.sources)
+    assert all(source.expected_sha256 is not None for source in catalog.sources)
+    assert sum(source.expected_page_count or 0 for source in catalog.sources) == 773
+    assert sum(len(source.excluded_pages) for source in catalog.sources) == 16
     assert all(
         str(source.landing_page_url).startswith("https://")
         for source in catalog.sources
@@ -239,11 +243,13 @@ def test_download_source_rejects_changed_official_file(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_kisa_source_requires_manual_download_without_creating_files(
+def test_source_without_direct_url_requires_manual_download(
     tmp_path: Path,
 ) -> None:
-    """Keep uncertain KISA redistribution sources outside automation."""
-    source = _source("kisa-ai-security-guide-corrected-2026")
+    """Keep catalog sources without a stable direct URL outside automation."""
+    source = _source("kisa-ai-security-guide-corrected-2026").model_copy(
+        update={"download_url": None}
+    )
 
     result = download_source(source, tmp_path)
 

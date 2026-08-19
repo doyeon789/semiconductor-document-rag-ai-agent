@@ -31,11 +31,11 @@
 # 출처·언어·다운로드 방식·재배포 상태 확인
 .\.venv\Scripts\python.exe scripts\download_corpus.py --list
 
-# 직접 다운로드 URL이 있는 NIST·OWASP 문서 다운로드
+# KISA·NIST·OWASP 공식 PDF 6종 다운로드
 .\.venv\Scripts\python.exe scripts\download_corpus.py --all
 ```
 
-KISA 문서는 아래 [Public AI Security Corpus](#public-ai-security-corpus)의 공식 게시물에서 직접 다운로드한 뒤 `data/raw/ai-security/`에 기대 파일명으로 저장합니다. `*.pdf`와 `data/raw/`는 Git에서 제외됩니다. PDF를 준비한 뒤 두 터미널에서 API와 Streamlit을 실행합니다.
+다운로드한 문서는 `data/raw/ai-security/`에 저장됩니다. 이는 로컬 수집 편의를 위한 기능이며 외부 PDF의 재배포 권한을 의미하지 않습니다. `*.pdf`와 `data/raw/`는 Git에서 제외됩니다. PDF를 준비한 뒤 두 터미널에서 API와 Streamlit을 실행합니다.
 
 ```powershell
 # Terminal 1: FastAPI
@@ -53,16 +53,16 @@ KISA 문서는 아래 [Public AI Security Corpus](#public-ai-security-corpus)의
 
 | 문서 | 기관 | 언어 | 로컬 준비 | 이용 조건 기록 |
 | --- | --- | --- | --- | --- |
-| [인공지능(AI) 보안 안내서 정오 수정본](https://www.kisa.or.kr/2060204/form?lang_type=KO&page=13&postSeq=19) | KISA | 한국어 | 공식 게시물에서 직접 다운로드 | 재배포 전 조건 확인 |
-| [AI 보안 위협 대응 매뉴얼](https://www.kisa.or.kr/401/form?lang_type=KO&postSeq=3712) | KISA | 한국어 | 공식 게시물에서 직접 다운로드 | 재배포 전 조건 확인 |
-| [AI 보안 레드티밍 가이드](https://www.kisa.or.kr/401/form?page=1&postSeq=3713) | KISA | 한국어 | 공식 게시물에서 직접 다운로드 | 재배포 전 조건 확인 |
+| [인공지능(AI) 보안 안내서 정오 수정본](https://www.kisa.or.kr/2060204/form?lang_type=KO&page=13&postSeq=19) | KISA | 한국어 | 스크립트 자동 다운로드 | 재배포 전 조건 확인 |
+| [AI 보안 위협 대응 매뉴얼](https://www.kisa.or.kr/401/form?lang_type=KO&postSeq=3712) | KISA | 한국어 | 스크립트 자동 다운로드 | 재배포 전 조건 확인 |
+| [AI 보안 레드티밍 가이드](https://www.kisa.or.kr/401/form?page=1&postSeq=3713) | KISA | 한국어 | 스크립트 자동 다운로드 | 재배포 전 조건 확인 |
 | [AI RMF 1.0](https://doi.org/10.6028/NIST.AI.100-1) | NIST | 영어 | 스크립트 자동 다운로드 | [출처 표기](https://www.nist.gov/nist-research-library/library-faqs) |
 | [Generative AI Profile](https://doi.org/10.6028/NIST.AI.600-1) | NIST | 영어 | 스크립트 자동 다운로드 | [출처 표기](https://www.nist.gov/nist-research-library/library-faqs) |
 | [GenAI LLM Top 10 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/) | OWASP | 영어 | 스크립트 자동 다운로드 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 조건 준수 |
 
 다운로드 결과의 공식 URL, SHA-256, 파일 크기와 수집 시각은 Git에서 제외된 `data/raw/ai-security/download_receipt.json`에 기록합니다. 이 저장소에는 PDF 원본을 커밋하지 않으며, 코드의 MIT License가 외부 문서의 이용 조건을 대체하지 않습니다.
 
-자동 다운로드 가능한 문서 3종은 2026-08-19 스모크 테스트에서 총 234쪽과 약 48.8만 자를 빈 페이지 없이 추출했습니다. 확인한 페이지 수와 SHA-256은 출처 매니페스트에 고정하며, 원격 파일이 예고 없이 변경되면 다운로드를 중단하고 새 버전을 검토합니다.
+공식 PDF 6종은 2026-08-19 스모크 테스트에서 총 773쪽과 약 98.9만 자를 추출했습니다. 네이티브 텍스트가 없는 16쪽은 시각 검사에서 표지·목차 이미지·장 구분 간지 또는 공백으로 확인해 문서별 `excluded_pages`에 기록했습니다. 확인한 페이지 수와 SHA-256은 출처 매니페스트에 고정하며, 원격 파일이 예고 없이 변경되면 다운로드를 중단하고 새 버전을 검토합니다.
 
 ## Overview
 

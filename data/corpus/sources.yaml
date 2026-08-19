@@ -15,10 +15,11 @@ sources:
     published_at: "2025-12-10"
     updated_at: "2026-03-13"
     landing_page_url: https://www.kisa.or.kr/2060204/form?lang_type=KO&page=13&postSeq=19
-    download_url: null
+    download_url: https://www.kisa.or.kr/post/fileDownload?menuSeq=2060204&postSeq=19&attachSeq=1&lang_type=KO
     filename: kisa_ai_security_guide_ko_2026_corrected.pdf
-    expected_page_count: null
-    expected_sha256: null
+    expected_page_count: 239
+    expected_sha256: dee592088d3ff851509315ed0eb1718e4d4aaea6b2469a22997dc0fedf127e06
+    excluded_pages: [1, 10, 24, 120, 150, 238]
     license:
       identifier: NOASSERTION
       reference_url: null
@@ -36,10 +37,11 @@ sources:
     published_at: "2026-07-07"
     updated_at: null
     landing_page_url: https://www.kisa.or.kr/401/form?lang_type=KO&postSeq=3712
-    download_url: null
+    download_url: https://www.kisa.or.kr/post/fileDownload?menuSeq=401&postSeq=3712&attachSeq=1&lang_type=KO
     filename: kisa_ai_threat_response_manual_ko_2026.pdf
-    expected_page_count: null
-    expected_sha256: null
+    expected_page_count: 231
+    expected_sha256: 1358643f3d93a643bda1d954b615aeb5046fe36716e333e98a5d5d71420efc95
+    excluded_pages: [2, 3, 5, 23, 123, 155]
     license:
       identifier: NOASSERTION
       reference_url: null
@@ -57,10 +59,11 @@ sources:
     published_at: "2026-07-07"
     updated_at: null
     landing_page_url: https://www.kisa.or.kr/401/form?page=1&postSeq=3713
-    download_url: null
+    download_url: https://www.kisa.or.kr/post/fileDownload?menuSeq=401&postSeq=3713&attachSeq=1&lang_type=KO
     filename: kisa_ai_red_teaming_guide_ko_2026.pdf
-    expected_page_count: null
-    expected_sha256: null
+    expected_page_count: 69
+    expected_sha256: 23cd4941d739730de14f5f20063f1cdafe49803acb5bd0ea17c76d5f6d6195a7
+    excluded_pages: [2, 5, 9, 21]
     license:
       identifier: NOASSERTION
       reference_url: null
@@ -82,6 +85,7 @@ sources:
     filename: nist_ai_rmf_1_0_en.pdf
     expected_page_count: 48
     expected_sha256: 7576edb531d9848825814ee88e28b1795d3a84b435b4b797d3670eafdc4a89f1
+    excluded_pages: []
     license:
       identifier: US-PD
       reference_url: https://www.nist.gov/nist-research-library/library-faqs
@@ -102,6 +106,7 @@ sources:
     filename: nist_generative_ai_profile_en_2024.pdf
     expected_page_count: 64
     expected_sha256: 6e73620ab6b64e90ef2c04bf0e0d6246185a2f4b1b13cab0df494496cff89b6a
+    excluded_pages: []
     license:
       identifier: US-PD
       reference_url: https://www.nist.gov/nist-research-library/library-faqs
@@ -122,6 +127,7 @@ sources:
     filename: owasp_genai_llm_top_10_en_2026.pdf
     expected_page_count: 122
     expected_sha256: ef87993a4e50ae9d83b41ff7a3d3e6320a82dfa8d4ec6bf98d0ce264b2e6108e
+    excluded_pages: []
     license:
       identifier: CC-BY-SA-4.0
       reference_url: https://creativecommons.org/licenses/by-sa/4.0/

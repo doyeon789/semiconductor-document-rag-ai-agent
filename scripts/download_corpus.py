@@ -58,6 +58,7 @@ class CorpusSource(BaseModel):
         default=None,
         pattern=r"^[0-9a-f]{64}$",
     )
+    excluded_pages: tuple[int, ...] = ()
     license: SourceLicense
 
 
@@ -126,7 +127,8 @@ def load_catalog(path: Path) -> CorpusCatalog:
     Raises
     ------
     ValueError
-        If the YAML root is not a mapping or source identifiers repeat.
+        If the YAML root is not a mapping, identifiers or filenames repeat,
+        or excluded page numbers are invalid.
     """
     raw_catalog = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw_catalog, dict):
@@ -138,6 +140,15 @@ def load_catalog(path: Path) -> CorpusCatalog:
     filenames = [source.filename for source in catalog.sources]
     if len(filenames) != len(set(filenames)):
         raise ValueError("corpus source filenames must be unique")
+    for source in catalog.sources:
+        if any(page < 1 for page in source.excluded_pages):
+            raise ValueError(f"source {source.id} excluded pages must be positive")
+        if len(source.excluded_pages) != len(set(source.excluded_pages)):
+            raise ValueError(f"source {source.id} excluded pages must be unique")
+        if source.expected_page_count is not None and any(
+            page > source.expected_page_count for page in source.excluded_pages
+        ):
+            raise ValueError(f"source {source.id} excluded pages exceed its page count")
     return catalog
 
 
