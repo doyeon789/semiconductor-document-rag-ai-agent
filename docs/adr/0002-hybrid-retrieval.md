@@ -1,66 +1,52 @@
-# ADR-0002: Qdrant + OpenSearch Hybrid Retrieval
+# ADR-0002: Local Hybrid Retrieval
 
 - Status: Accepted
 - Date: 2026-08-07
-- Decision owners: Project maintainer
+- Updated: 2026-08-19
 
 ## Context
 
-반도체 문서는 의미가 비슷한 표현뿐 아니라 `EUV`, `RF-102`, recipe 이름, 압력·온도·선택비 같은 exact term이 중요하다. Dense Search만 사용하면 정확한 코드와 희귀 약어를 놓칠 수 있고, BM25만 사용하면 한영 표현과 의미적 유사성을 놓칠 수 있다.
+AI 보안 문서에는 의미가 비슷한 설명과 함께 `AI RMF`, `LLM01`, 기관 고유 용어처럼 exact match가 중요한 표현이 섞여 있습니다. Dense만 사용하면 식별자를 놓칠 수 있고 BM25만 사용하면 한국어·영어의 의미적 연결이 약합니다.
+
+초기 설계는 Qdrant와 OpenSearch를 제안했지만, 현재 6개 문서 규모에서 두 서버를 운영하는 비용은 검색 품질에 직접 기여하지 않습니다.
 
 ## Decision
 
-- Dense Vector Search는 Qdrant를 사용한다.
-- Keyword/BM25 Search는 OpenSearch를 사용한다.
-- 두 backend를 병렬 호출하고 Reciprocal Rank Fusion으로 결합한다.
-- Fusion 상위 후보에 Cross-Encoder Reranker를 적용한다.
-- PostgreSQL을 metadata source of truth로 사용하고 두 인덱스는 재생성 가능한 projection으로 취급한다.
-- 하나의 검색 backend가 실패하면 나머지 결과로 degraded response를 제공한다.
+- BM25와 Dense index를 Python 프로세스 메모리에 만듭니다.
+- Dense embedding은 FastEmbed의 다국어 로컬 모델을 사용합니다.
+- 두 순위를 Reciprocal Rank Fusion으로 결합합니다.
+- Hybrid 상위 후보에 다국어 Cross-Encoder Reranker를 적용합니다.
+- 모든 모드를 같은 Chunk와 평가셋에서 비교합니다.
+- 외부 vector/keyword 검색 서버는 현재 사용하지 않습니다.
 
 ## Consequences
 
 ### Positive
 
-- 의미 검색과 exact term 검색을 독립적으로 튜닝할 수 있다.
-- Dense, BM25, Hybrid 개선 효과를 명확히 비교할 수 있다.
-- 검색 backend별 장애 격리가 가능하다.
-- 포트폴리오에서 Hybrid Retrieval 설계와 평가를 구체적으로 보여줄 수 있다.
+- 별도 서비스 없이 Windows 로컬과 CI에서 재현할 수 있습니다.
+- BM25·Dense·Hybrid·Rerank 효과를 독립적으로 비교할 수 있습니다.
+- 현재 코퍼스 규모에서 운영 복잡도보다 검색 실험에 집중할 수 있습니다.
 
 ### Negative
 
-- 로컬·배포 환경에서 운영할 서비스가 늘어난다.
-- 두 인덱스의 version과 활성 문서를 동기화해야 한다.
-- score scale이 달라 rank-based fusion이 필요하다.
+- 프로세스를 재시작하면 index를 다시 만듭니다.
+- 코퍼스가 커지면 메모리와 시작 시간이 늘어납니다.
+- 분산 검색과 증분 색인을 지원하지 않습니다.
 
-## Alternatives Considered
+## Alternatives
 
-### OpenSearch only
-
-운영은 단순하지만 Dense와 BM25 실험 및 payload 모델이 한 컴포넌트에 결합된다.
-
-### PostgreSQL + pgvector
-
-MVP 인프라는 단순해지지만 한국어 BM25와 검색 분석기 실험 범위가 제한될 수 있다.
-
-### Qdrant dense+sparse only
-
-단일 vector engine으로 단순화할 수 있으나 OpenSearch의 exact field와 BM25 분석기 실험을 포기해야 한다.
-
-## Validation
-
-- Dense, BM25, Hybrid, Hybrid+Reranker 동일 평가셋 비교
-- Qdrant/OpenSearch 개별 장애 fallback test
-- index version mismatch test
-- exact 장비 코드와 한영 동의어 slice 지표 비교
+- Qdrant + OpenSearch: 현재 규모에는 과도해 보류했습니다.
+- Dense only: exact term 검색 약화 때문에 제외했습니다.
+- BM25 only: 한영 의미 검색 한계 때문에 baseline으로만 유지합니다.
 
 ## Revisit Conditions
 
-- 배포 환경 자원으로 두 엔진을 운영할 수 없는 경우
-- 단일 엔진이 동일 평가 점수와 latency를 만족하는 경우
-- 데이터 규모가 PostgreSQL 단일 구성으로 충분하다고 입증된 경우
+- 로컬 index가 메모리나 시작 시간 목표를 넘는 경우
+- 문서 업로드·증분 색인·다중 프로세스 공유가 필요한 경우
+- 외부 엔진이 holdout 검색 품질이나 latency를 유의미하게 개선하는 경우
 
-## Related Documents
+## Validation
 
-- [Retrieval Design](../retrieval-design.md)
-- [Evaluation Plan](../evaluation-plan.md)
-
+- 네 검색 모드의 동일 평가셋 비교
+- exact term, 한영 교차, 기관 간 비교 slice
+- Page Hit@5, MRR, Page Match Accuracy와 warm latency

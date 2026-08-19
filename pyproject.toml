@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "semiconductor-document-rag"
 version = "0.1.0"
-description = "Page-grounded RAG for semiconductor documents"
+description = "Page-grounded RAG for public AI security documents"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

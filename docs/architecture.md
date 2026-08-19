@@ -1,266 +1,107 @@
 # System Architecture
 
-## 1. 설계 목표
+## 1. 설계 원칙
 
-- 페이지 근거를 잃지 않는 문서 처리
-- Dense와 Keyword Search를 결합한 정확한 검색
-- 검색, 원문 조회, 인용 검증의 독립적인 테스트
-- 근거 부족 시 안전하게 종료되는 Agent 흐름
-- 로컬 개발과 데모 배포에서 동일한 데이터 계약 사용
+- 문서와 페이지 식별자를 검색부터 Citation까지 잃지 않습니다.
+- 검색 알고리즘과 Agent orchestration을 분리합니다.
+- 외부 LLM·DB·검색 서버 없이 로컬에서 재현할 수 있게 유지합니다.
+- 새 컴포넌트는 평가에서 현재 병목을 해결한다고 확인될 때만 추가합니다.
 
-## 2. System Context
+## 2. 현재 구조
 
 ```mermaid
 flowchart LR
-    USER["User"] --> UI["Streamlit UI"]
-    UI --> API["FastAPI API"]
-    API --> APP["Application Services"]
-    APP --> AGENT["LangGraph Agent"]
-    AGENT --> LLM["LLM Provider"]
-    AGENT --> MCP["MCP Tool Servers"]
-    APP --> JOB["Ingestion / Evaluation Workers"]
-    MCP --> DATA["Search & Storage"]
-    JOB --> DATA
-    APP --> OBS["Langfuse / Logs / Metrics"]
+    PDF["Configured local PDF"] --> PARSE["PyMuPDF extraction"]
+    PARSE --> CHUNK["Page chunks"]
+    CHUNK --> BM25["In-memory BM25"]
+    CHUNK --> DENSE["FastEmbed dense index"]
+    BM25 --> HYBRID["RRF fusion"]
+    DENSE --> HYBRID
+    HYBRID --> RERANK["Cross-Encoder reranker"]
+    RERANK --> EVIDENCE["Evidence pack"]
+    EVIDENCE --> ANSWER["Extractive answer + citations"]
+    EVIDENCE --> ABSTAIN["Abstention"]
+    AGENT["Bounded LangGraph agent"] --> BM25
+    AGENT --> RERANK
+    UI["Streamlit"] --> API["FastAPI"]
+    API --> AGENT
+    API --> RERANK
 ```
 
-## 3. Container Architecture
+현재 인덱스는 API 프로세스 메모리에 만들어집니다. BM25는 즉시 준비하고 Dense와 Reranker 모델은 처음 필요할 때 로드합니다. PostgreSQL, Qdrant, OpenSearch, MinIO와 MCP 서버는 사용하지 않습니다.
+
+## 3. 코퍼스 전환 구조
 
 ```mermaid
-flowchart TB
-    subgraph Client
-        UI["Streamlit"]
-    end
-
-    subgraph Application
-        API["FastAPI"]
-        WORKER["Background Worker"]
-        GRAPH["LangGraph Runtime"]
-    end
-
-    subgraph MCP
-        RET["Retrieval Server"]
-        DOC["Document Server"]
-        CITE["Citation Server"]
-    end
-
-    subgraph Data
-        PG[("PostgreSQL")]
-        QD[("Qdrant")]
-        OS[("OpenSearch")]
-        OBJ[("MinIO / S3")]
-    end
-
-    subgraph External
-        LLM["OpenAI API"]
-        LF["Langfuse"]
-    end
-
-    UI --> API
-    API --> WORKER
-    API --> GRAPH
-    GRAPH --> RET
-    GRAPH --> DOC
-    GRAPH --> CITE
-    GRAPH --> LLM
-    WORKER --> PG
-    WORKER --> QD
-    WORKER --> OS
-    WORKER --> OBJ
-    RET --> QD
-    RET --> OS
-    RET --> PG
-    DOC --> PG
-    DOC --> OBJ
-    CITE --> PG
-    API --> LF
-    GRAPH --> LF
+flowchart LR
+    MANIFEST["sources.yaml"] --> DOWNLOAD["Download + SHA-256 validation"]
+    DOWNLOAD --> RAW["data/raw/ai-security"]
+    MANIFEST --> LOAD["Multi-document loader"]
+    RAW --> LOAD
+    LOAD --> PAGES["Document-aware pages"]
+    PAGES --> CHUNKS["Document-aware chunks"]
+    CHUNKS --> SEARCH["Shared local search index"]
+    SEARCH --> CITATION["Correct document + page citation"]
 ```
 
-## 4. Component Responsibilities
+`Multi-document loader` 이후는 다음 구현 범위입니다. 핵심 변화는 Chunk와 Evidence에 실제 `source_id`, 제목, 언어와 PDF 경로를 연결하는 것입니다.
 
-| Component | 책임 | 하지 않는 일 |
-| --- | --- | --- |
-| Streamlit UI | 문서 등록, 질문 입력, 답변·인용·원문 표시 | 검색 로직, prompt 조립 |
-| FastAPI | 인증 전 단계의 API, 요청 검증, use case 호출 | 파서·DB 세부 구현 |
-| Ingestion Worker | 파싱, OCR, Chunking, 색인, 상태 관리 | 사용자 답변 생성 |
-| Retrieval Service | Query 처리, Dense/BM25 검색, Fusion, Reranking | LLM 답변 생성 |
-| Answer Service | Evidence Pack으로 답변·Claim 생성 | 임의 검색, 원문 조작 |
-| Citation Service | Claim과 Evidence 정합성 및 페이지 참조 검증 | 새로운 사실 생성 |
-| LangGraph Agent | 도구 순서, 재검색, 종료 조건 제어 | 검색 알고리즘 구현 |
-| MCP Servers | 기능을 독립 도구 계약으로 노출 | UI 상태 관리 |
-| PostgreSQL | 문서·페이지·청크·작업·인용 메타데이터 | 원본 PDF binary 저장 |
-| Qdrant | Dense Vector와 검색용 payload | 원본 문서 보존 |
-| OpenSearch | BM25 및 exact term 검색 | 시스템 기록의 source of truth |
-| MinIO/S3 | 원본 PDF, 페이지 이미지, 파싱 산출물 | 관계형 조회 |
+## 4. 컴포넌트 책임
 
-## 5. 주요 데이터 흐름
+| 컴포넌트 | 현재 책임 |
+| --- | --- |
+| `scripts/download_corpus.py` | 출처 매니페스트 검증, 공식 PDF 다운로드, 서명·해시 확인, 영수증 기록 |
+| `ingestion.pdf` | 네이티브 텍스트 블록과 1-based 페이지 metadata 추출 |
+| `ingestion.chunking` | 페이지 범위를 보존한 검색 Chunk 생성 |
+| `retrieval` | BM25·Dense·RRF·Rerank와 페이지 추적 검색 결과 생성 |
+| `answering` | Evidence 선택, 충분성 판정, 원문 발췌 Claim과 Citation 검증 |
+| `agent` | 입력 안전 분류, 검색 순서, 재검색·종료 상한과 trace |
+| `apps.api` | HTTP 요청 검증과 현재 단일 문서 서비스 수명주기 |
+| `apps.ui` | 질문 입력, 답변·Citation·trace 표시 |
+| `evaluation` | 검색·답변·Citation·답변 보류·trajectory 지표 계산 |
 
-### 5.1 Ingestion
+## 5. 주요 흐름
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as FastAPI
-    participant W as Worker
-    participant P as Parser/OCR
-    participant DB as PostgreSQL
-    participant IDX as Qdrant/OpenSearch
-    participant OBJ as MinIO
-
-    U->>API: PDF upload
-    API->>OBJ: Store original PDF
-    API->>DB: Create ingestion job
-    API-->>U: document_id, job_id
-    W->>OBJ: Read PDF
-    W->>P: Parse pages and tables
-    P-->>W: Elements with page metadata
-    W->>DB: Upsert document/page/chunk records
-    W->>IDX: Replace document indexes
-    W->>DB: Mark job completed
-```
-
-색인은 문서 단위로 교체한다. Metadata 저장은 성공했지만 색인이 실패하면 문서 상태를 `INDEX_FAILED`로 기록하고 재시도한다.
-
-### 5.2 Question Answering
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as FastAPI
-    participant A as LangGraph
-    participant R as Retrieval MCP
-    participant D as Document MCP
-    participant C as Citation MCP
-    participant L as LLM
-
-    U->>API: question + filters + audience
-    API->>A: start state
-    A->>R: hybrid_search
-    R-->>A: ranked evidence candidates
-    alt evidence insufficient
-        A->>R: rewrite_and_search
-        R-->>A: additional candidates
-    end
-    A->>D: get_page / get_table
-    D-->>A: source evidence
-    A->>L: generate grounded claims
-    L-->>A: answer + claim-citation mapping
-    A->>C: validate_citations
-    C-->>A: validation result
-    A-->>API: answer or abstention
-    API-->>U: structured response
-```
-
-## 6. 계층과 의존성 방향
+### 일반 RAG
 
 ```text
-apps (API/UI/MCP entrypoints)
-  → application (use cases, ports)
-    → domain (entities, policies, pure logic)
-
-infrastructure (DB, search, parser, LLM adapters)
-  → application ports 구현
+question
+  → Hybrid 후보 검색
+  → Cross-Encoder Rerank
+  → 중복 페이지 제거와 Evidence 선택
+  → 상위 Rerank 점수 충분성 확인
+  → 원문 발췌 Claim 생성
+  → Citation의 ID·페이지·quote 검증
+  → answer 또는 abstention
 ```
 
-- `domain`은 FastAPI, Qdrant, OpenSearch, LangGraph를 import하지 않는다.
-- `application`은 구체 DB client 대신 port/protocol에 의존한다.
-- `infrastructure`는 외부 SDK 오류를 공통 애플리케이션 오류로 변환한다.
-- MCP handler는 application use case를 호출하는 얇은 adapter로 유지한다.
-
-## 7. 목표 디렉터리 구조
+### Agentic RAG
 
 ```text
-.
-├── apps/
-│   ├── api/
-│   ├── ui/
-│   └── mcp/
-├── src/semiconductor_rag/
-│   ├── domain/
-│   ├── application/
-│   ├── ingestion/
-│   ├── retrieval/
-│   ├── generation/
-│   ├── citation/
-│   ├── agent/
-│   ├── evaluation/
-│   └── infrastructure/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── contract/
-│   ├── evaluation/
-│   └── fixtures/
-├── configs/
-├── data/
-│   ├── samples/
-│   └── eval/
-├── docs/
-├── scripts/
-└── docker-compose.yml
+입력 안전 분류
+  → BM25 첫 검색
+  → 근거 충분성 판단
+  → 필요하면 query rewrite 후 Rerank 검색
+  → 답변 생성·검증
+  → 성공 또는 제한 사유를 가진 abstention
 ```
 
-## 8. 상태 모델
+Agent는 검색 알고리즘을 구현하지 않고 typed in-process tool을 호출합니다.
 
-### Document Status
+## 6. 신뢰성과 안전 경계
 
-```text
-UPLOADED
-  → PARSING
-  → PARSED
-  → INDEXING
-  → READY
+- 다운로드 시 `%PDF-` 서명과 매니페스트 SHA-256을 확인합니다.
+- 문서 내용은 명령이 아닌 비신뢰 데이터로 취급합니다.
+- Agent는 step·검색·repair·timeout 상한을 넘지 않습니다.
+- 답변 인용문은 Evidence 원문에 실제 포함된 경우에만 반환합니다.
+- 외부 PDF, 모델 cache, 평가 산출물과 secret은 Git에서 제외합니다.
 
-PARSING → PARSE_FAILED
-INDEXING → INDEX_FAILED
-READY → REINDEXING → READY
-```
+## 7. 알려진 구조적 제한
 
-### Answer Status
+- API 서비스가 아직 단일 PDF와 고정 문서 metadata에 묶여 있습니다.
+- 인덱스가 프로세스 메모리에 있어 재시작 때 다시 만듭니다.
+- 네이티브 텍스트가 없는 페이지는 OCR하지 않습니다.
+- 답변은 추출형이며 자연스러운 종합 문장을 생성하지 않습니다.
+- 문서 필터와 다중 문서 비교 Evidence 균형이 아직 없습니다.
 
-```text
-SEARCHING
-  → GATHERING_EVIDENCE
-  → GENERATING
-  → VALIDATING
-  → COMPLETED
-
-SEARCHING / GATHERING_EVIDENCE / VALIDATING
-  → ABSTAINED
-```
-
-## 9. Reliability Patterns
-
-- 문서 해시와 파서 설정 버전으로 idempotency key를 생성한다.
-- 외부 서비스 호출에는 timeout과 제한된 retry를 적용한다.
-- ingestion 단계별 checkpoint를 저장해 실패 지점부터 재시작한다.
-- Qdrant와 OpenSearch 색인에는 `document_id`와 `version_id`를 payload로 저장한다.
-- 재색인은 새 버전 준비 후 활성 버전을 전환하는 방식으로 수행한다.
-- Agent는 `max_steps`, `max_retrieval_attempts`, `max_tool_errors`를 초과하면 답변을 보류한다.
-
-## 10. Security Boundaries
-
-- 업로드 파일명은 저장 경로로 직접 사용하지 않는다.
-- MIME type, 확장자, PDF signature, 파일 크기를 검증한다.
-- 원문과 인덱스에는 동일한 `access_scope`를 적용할 수 있도록 필드를 예약한다.
-- prompt에 삽입되는 문서 내용은 명령이 아닌 비신뢰 데이터로 취급한다.
-- 로그에는 원문 전체, API 키, 개인식별정보를 남기지 않는다.
-
-## 11. 주요 Trade-offs
-
-| 선택 | 이점 | 비용 |
-| --- | --- | --- |
-| Qdrant + OpenSearch 분리 | Dense와 BM25를 독립적으로 튜닝 | 운영 컴포넌트 증가 |
-| 페이지 중심 모델 | 인용 추적과 원문 표시가 명확 | 페이지 경계를 넘는 문맥 결합 필요 |
-| MCP 서버 분리 | 도구 독립 테스트와 재사용 | 네트워크·serialization 비용 |
-| LangGraph | 상태 전이와 종료 조건 명시 | 단순 RAG보다 구현 복잡도 증가 |
-
-## 12. 관련 문서
-
-- [Data Model](./data-model.md)
-- [Ingestion Design](./ingestion-design.md)
-- [Retrieval Design](./retrieval-design.md)
-- [Agent & MCP Design](./agent-mcp-design.md)
-- [Operations](./operations.md)
-
+이 제한은 [Roadmap](./roadmap.md)의 성능 순서로 해결합니다.

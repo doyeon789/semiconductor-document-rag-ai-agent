@@ -2,45 +2,44 @@
 
 ## 1. 목적
 
-프로젝트에서 사용하는 PDF, 파싱 산출물, 검색 인덱스, 평가 데이터의 저작권·보안·보존 기준을 정의한다.
+AI 보안 코퍼스의 출처, 이용 조건, 로컬 저장과 공개 저장소 반영 기준을 정의합니다.
 
 ## 2. 기본 원칙
 
-- 소유권이나 재배포 권한이 확인되지 않은 문서를 공개 저장소에 올리지 않는다.
-- 코드의 MIT License가 외부 문서의 이용 권한을 대신하지 않는다.
-- 사내 공정 문서, 유료 장비 매뉴얼, 비공개 논문은 공개 데모 데이터로 사용하지 않는다.
-- 원문에서 파생된 OCR text, Chunk, embedding도 원문과 동일한 접근 범위로 취급한다.
-- 문서 내용은 prompt instruction이 아니라 비신뢰 데이터로 취급한다.
+- 외부 PDF 원본은 Git에 커밋하지 않습니다.
+- 코드의 MIT License는 외부 문서의 이용 권한을 대신하지 않습니다.
+- 다운로드 자동화는 로컬 수집 편의이며 재배포 허가를 의미하지 않습니다.
+- 문서별 공식 페이지, 다운로드 URL, 버전, 해시와 이용 조건을 출처 매니페스트에 기록합니다.
+- 원문에서 파생한 전체 text·Chunk·embedding도 원문의 이용 조건을 따릅니다.
+- 문서 내용은 실행 지시가 아닌 비신뢰 데이터로 취급합니다.
 
-## 3. Data Classification
+## 3. 출처 매니페스트
 
-| 등급 | 예시 | Git 저장소 | 공개 데모 |
-| --- | --- | :---: | :---: |
-| Public-Redistributable | 명확한 오픈 라이선스 샘플 | 허용 | 허용 |
-| Public-Reference-Only | 공개 웹 문서지만 재배포 불명확 | 원문 금지 | URL 기반 별도 검토 |
-| Restricted | 유료 논문, 장비 매뉴얼 | 금지 | 금지 |
-| Confidential | 사내 공정·제조 문서 | 금지 | 금지 |
-| Sensitive | 개인정보·계정·secret 포함 자료 | 금지 | 금지 |
+기준 파일은 [`../data/corpus/sources.yaml`](../data/corpus/sources.yaml)입니다.
 
-## 4. Dataset Manifest
+필수 정보:
 
-`data/samples/manifest.yaml`에 모든 샘플 문서를 기록한다.
+- 안정적인 source ID
+- 기관, 문서명, 언어와 문서 유형
+- 게시·수정일
+- 공식 landing page와 download URL
+- 기대 filename, page count와 SHA-256
+- 검색 제외 페이지
+- 라이선스 식별자, 참조 URL, 재배포 상태와 고지문
 
-```yaml
-- document_id: sample-001
-  title: Example Process Paper
-  source_url: https://example.org/paper.pdf
-  license: CC-BY-4.0
-  redistribution_allowed: true
-  attribution: Example Author
-  sha256: "..."
-  added_at: 2026-08-07
-  notes: Used for text PDF parsing tests
-```
+소스 ID·filename 중복, 잘못된 URL, 유효하지 않은 해시와 페이지 범위는 로더 단계에서 거부합니다.
 
-필수 필드가 없거나 `redistribution_allowed=false`인 파일은 저장소에 커밋하지 않는다.
+## 4. 문서별 취급
 
-## 5. Repository Rules
+| 기관 | 로컬 다운로드 | 저장소 원본 포함 | 외부 데모 재배포 |
+| --- | :---: | :---: | --- |
+| KISA | 허용 | 금지 | 조건 확인 전 금지 |
+| NIST | 허용 | 금지 | 출처 표기와 기관 정책 확인 |
+| OWASP | 허용 | 금지 | CC BY-SA 4.0 조건 준수 |
+
+저장소는 원본을 포함하지 않으므로 사용자가 공식 URL에서 직접 다시 받을 수 있어야 합니다.
+
+## 5. 로컬 파일과 Git
 
 커밋 금지 대상:
 
@@ -48,94 +47,49 @@
 .env
 *.key
 *.pem
-data/raw/**
-data/private/**
-artifacts/**
-indexes/**
 *.pdf
+data/raw/**
+indexes/**
+output/**
+artifacts/**
 ```
 
-재배포 가능한 PDF만 `data/samples/` 예외 규칙으로 명시한다. 일반 `*.pdf` ignore를 해제하는 광범위한 규칙은 사용하지 않는다.
+현재 PDF는 `data/raw/ai-security/`에 저장합니다. `download_receipt.json`도 로컬 검증 기록이며 Git에 포함하지 않습니다.
 
-## 6. Secrets
+## 6. 다운로드 무결성
 
-- API key는 환경변수 또는 secret manager로 주입한다.
-- `.env.example`에는 변수 이름과 설명만 포함한다.
-- 로그, trace, exception message에 key를 남기지 않는다.
-- secret scanning을 CI에 포함한다.
-- 노출된 key는 즉시 폐기하고 Git history 포함 여부를 점검한다.
+- HTTPS 공식 URL만 사용합니다.
+- `%PDF-` signature를 확인합니다.
+- 파일 저장 전에 전체 SHA-256을 계산합니다.
+- 기대 해시와 다르면 임시 파일을 최종 파일로 교체하지 않습니다.
+- 공식 파일이 변경되면 새 문서 버전을 검토한 뒤 매니페스트를 갱신합니다.
+- `--overwrite`는 기대 해시를 우회하지 않습니다.
 
-## 7. Uploaded Document Handling
+## 7. 로그와 평가 산출물
 
-MVP local demo:
+기록 가능:
 
-- 업로드 파일은 명시된 local storage 또는 MinIO에 저장한다.
-- object key는 UUID 기반으로 생성한다.
-- 원래 파일명은 metadata에만 저장한다.
-- 원문, 페이지 이미지, OCR text, Chunk, vector에 동일 `access_scope`를 부여한다.
-- 삭제 요청 시 활성 검색에서 먼저 제외하고 파생 데이터를 비동기로 정리한다.
+- source/document/version ID
+- 페이지와 Chunk 수
+- 모델·설정 버전
+- latency, 검색 순위, 오류 유형
+- 원문을 복원할 수 없는 짧은 debug 정보
 
-## 8. Retention
-
-| Data | 기본 보존 |
-| --- | --- |
-| 원본 공개 샘플 | 프로젝트 기간 동안 |
-| 사용자 업로드 데모 문서 | 세션 또는 명시된 기간 |
-| 페이지 이미지 | 문서와 동일 |
-| 검색 인덱스 | 활성 문서 버전 동안 |
-| Agent trace | 14일, 원문 전체 제외 |
-| 평가 report | 릴리스 비교를 위해 보존 |
-
-실제 배포 시 retention 값은 환경설정과 사용자 안내에 명시한다.
-
-## 9. Logging & Observability
-
-로그 허용:
-
-- document/version/job ID
-- page number
-- Chunk 수와 token 수
-- 모델·설정 version
-- latency와 오류 code
-
-로그 금지:
+기록 금지:
 
 - API key와 credential
 - PDF 전체 text
-- 민감한 질문·답변 원문
-- signed URL 전체 값
-- 사용자 개인식별정보
+- 불필요한 로컬 절대 경로
+- 사용자 개인정보나 비공개 질문
+- 문서에 포함된 secret·개인정보 원문
 
-질문과 Evidence trace는 기본적으로 hash 또는 redacted preview를 사용하고, 개발 debug 모드는 비공개 환경에서만 허용한다.
+## 8. 공개 전 확인
 
-## 10. Prompt Injection & Unsafe Content
+- [ ] 6개 source의 URL·해시·페이지 수가 유효합니다.
+- [ ] PDF와 파생 전체 text가 Git history에 없습니다.
+- [ ] README에 각 기관의 공식 출처가 있습니다.
+- [ ] 외부 데모가 원문을 노출한다면 문서별 재배포 조건을 다시 확인했습니다.
+- [ ] 평가 결과가 긴 원문 발췌를 포함하지 않습니다.
+- [ ] `.env`, token, model cache와 다운로드 영수증이 제외됩니다.
 
-- 문서 내용이 시스템 행동을 지시해도 실행하지 않는다.
-- 문서에 포함된 외부 URL을 자동으로 방문하지 않는다.
-- 문서에 포함된 코드나 shell 명령을 실행하지 않는다.
-- LLM context에서 tool instruction과 evidence block을 명확히 구분한다.
-- tool 호출은 schema와 allowlist로 제한한다.
-
-## 11. Publication Checklist
-
-- [ ] 모든 샘플 문서가 manifest에 등록되었다.
-- [ ] 재배포 권한과 attribution을 확인했다.
-- [ ] 비공개 원문·OCR·Chunk·vector가 Git에 없다.
-- [ ] `.env`, key, token이 없다.
-- [ ] README에 문서 저작권 제한을 설명했다.
-- [ ] 데모에서 원문 페이지 공개가 허용된다.
-- [ ] 평가 결과가 특정 비공개 문서 내용을 노출하지 않는다.
-
-## 12. Incident Response
-
-비공개 데이터나 secret이 노출되면:
-
-1. 배포와 공유 링크를 중지한다.
-2. API key를 폐기·재발급한다.
-3. 노출 범위와 로그를 확인한다.
-4. 원격 저장소와 artifact에서 데이터를 제거한다.
-5. 필요한 이해관계자에게 알린다.
-6. 재발 방지 test와 정책을 추가한다.
-
-Git history 변경 같은 파괴적 조치는 영향 범위를 확인하고 별도 승인 후 수행한다.
-
+비공개 데이터나 secret이 노출되면 공유를 중지하고 key 폐기, 노출 범위 확인과 저장소 정리를 별도 승인 절차로 수행합니다.
