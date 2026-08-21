@@ -25,7 +25,7 @@ def _write_pdf(path: Path, page_texts: tuple[str, ...]) -> None:
     page_texts : tuple of str
         Text inserted on each physical page.
     """
-    with pymupdf.open() as document:
+    with pymupdf.open() as document:  # type: ignore[no-untyped-call]
         for text in page_texts:
             page = document.new_page()
             page.insert_text((72, 72), text)
