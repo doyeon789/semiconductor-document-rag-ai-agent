@@ -8,12 +8,14 @@ from pathlib import Path
 import pytest
 
 from scripts.download_corpus import (
-    CorpusCatalog,
     CorpusDownloadError,
-    CorpusSource,
     download_source,
-    load_catalog,
     select_sources,
+)
+from semiconductor_rag.corpus import (
+    CorpusCatalog,
+    CorpusSource,
+    load_catalog,
 )
 
 CATALOG_PATH = Path("data/corpus/sources.yaml")

@@ -125,7 +125,7 @@
 .\.venv\Scripts\python.exe scripts\evaluate_rag.py
 ```
 
-현재 기본 입력은 기존 단일 문서 평가셋입니다. AI 보안 평가셋과 다중 문서 loader가 연결되기 전까지 결과를 새 코퍼스 성능으로 게시하지 않습니다.
+현재 기본 입력은 기존 단일 문서 평가셋입니다. 다중 문서 loader는 연결됐지만 AI 보안 gold page 평가셋이 아직 없으므로 결과를 새 코퍼스 성능으로 게시하지 않습니다.
 
 평가 산출물은 Git에서 제외된 `output/evaluation/{run_id}/`에 저장합니다.
 

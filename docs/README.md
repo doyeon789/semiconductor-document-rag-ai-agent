@@ -15,7 +15,7 @@
 9. [Evaluation Plan](./evaluation-plan.md) — AI 보안 평가셋과 품질 Gate
 10. [Testing Strategy](./testing-strategy.md) — 현재 자동 테스트 계층
 11. [Operations](./operations.md) — 로컬 실행과 장애 확인
-12. [Local Demo Guide](./demo-guide.md) — 현재 단일 문서 데모의 실행법과 제한
+12. [Local Demo Guide](./demo-guide.md) — 6개 문서 로컬 데모의 실행법과 제한
 
 ## Architecture Decision Records
 

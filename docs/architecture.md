@@ -11,7 +11,9 @@
 
 ```mermaid
 flowchart LR
-    PDF["Configured local PDF"] --> PARSE["PyMuPDF extraction"]
+    CATALOG["sources.yaml"] --> LOAD["Verified corpus loader"]
+    PDF["6 local PDFs"] --> LOAD
+    LOAD --> PARSE["PyMuPDF extraction"]
     PARSE --> CHUNK["Page chunks"]
     CHUNK --> BM25["In-memory BM25"]
     CHUNK --> DENSE["FastEmbed dense index"]
@@ -28,7 +30,7 @@ flowchart LR
     API --> RERANK
 ```
 
-현재 인덱스는 API 프로세스 메모리에 만들어집니다. BM25는 즉시 준비하고 Dense와 Reranker 모델은 처음 필요할 때 로드합니다. PostgreSQL, Qdrant, OpenSearch, MinIO와 MCP 서버는 사용하지 않습니다.
+현재 6개 문서의 통합 인덱스는 API 프로세스 메모리에 만들어집니다. BM25는 즉시 준비하고 Dense와 Reranker 모델은 처음 필요할 때 로드합니다. PostgreSQL, Qdrant, OpenSearch, MinIO와 MCP 서버는 사용하지 않습니다.
 
 ## 3. 코퍼스 전환 구조
 
@@ -44,7 +46,7 @@ flowchart LR
     SEARCH --> CITATION["Correct document + page citation"]
 ```
 
-`Multi-document loader` 이후는 다음 구현 범위입니다. 핵심 변화는 Chunk와 Evidence에 실제 `source_id`, 제목, 언어와 PDF 경로를 연결하는 것입니다.
+이 흐름은 현재 구현되어 있습니다. Chunk version으로 실제 `source_id`, 제목, 기관, 언어와 PDF 경로를 조회하고 SearchHit·Evidence·Citation에 전달합니다.
 
 ## 4. 컴포넌트 책임
 
@@ -56,7 +58,7 @@ flowchart LR
 | `retrieval` | BM25·Dense·RRF·Rerank와 페이지 추적 검색 결과 생성 |
 | `answering` | Evidence 선택, 충분성 판정, 원문 발췌 Claim과 Citation 검증 |
 | `agent` | 입력 안전 분류, 검색 순서, 재검색·종료 상한과 trace |
-| `apps.api` | HTTP 요청 검증과 현재 단일 문서 서비스 수명주기 |
+| `apps.api` | HTTP 요청 검증, 통합 corpus 수명주기와 문서별 PDF 응답 |
 | `apps.ui` | 질문 입력, 답변·Citation·trace 표시 |
 | `evaluation` | 검색·답변·Citation·답변 보류·trajectory 지표 계산 |
 
@@ -98,10 +100,9 @@ Agent는 검색 알고리즘을 구현하지 않고 typed in-process tool을 호
 
 ## 7. 알려진 구조적 제한
 
-- API 서비스가 아직 단일 PDF와 고정 문서 metadata에 묶여 있습니다.
 - 인덱스가 프로세스 메모리에 있어 재시작 때 다시 만듭니다.
 - 네이티브 텍스트가 없는 페이지는 OCR하지 않습니다.
 - 답변은 추출형이며 자연스러운 종합 문장을 생성하지 않습니다.
-- 문서 필터와 다중 문서 비교 Evidence 균형이 아직 없습니다.
+- 문서 필터와 비교 질문의 문서별 Evidence 균형은 아직 없습니다.
 
 이 제한은 [Roadmap](./roadmap.md)의 성능 순서로 해결합니다.

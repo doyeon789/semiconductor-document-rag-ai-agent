@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
+from uuid import UUID
 
-from semiconductor_rag.domain import Chunk
+from semiconductor_rag.domain import Chunk, DocumentSource
 from semiconductor_rag.retrieval.bm25 import BM25Index
 from semiconductor_rag.retrieval.dense import DenseIndex
 from semiconductor_rag.retrieval.embedding import Embedder
@@ -32,6 +33,8 @@ class LocalSearchService:
         Page-traceable chunks to search.
     embedder : Embedder
         Dense model adapter. Its document index is created only when needed.
+    sources_by_version : mapping of uuid.UUID to DocumentSource or None
+        Optional document metadata used to enrich every returned hit.
     """
 
     def __init__(
@@ -40,6 +43,7 @@ class LocalSearchService:
         embedder: Embedder,
         reranker: Reranker | None = None,
         rerank_candidate_k: int = 10,
+        sources_by_version: Mapping[UUID, DocumentSource] | None = None,
     ) -> None:
         """Build the lightweight sparse index and retain dense configuration."""
         if rerank_candidate_k < 1:
@@ -48,6 +52,12 @@ class LocalSearchService:
         self._embedder = embedder
         self._reranker = reranker
         self._rerank_candidate_k = rerank_candidate_k
+        self._sources_by_version = dict(sources_by_version or {})
+        missing_versions = {chunk.version_id for chunk in self._chunks}.difference(
+            self._sources_by_version
+        )
+        if self._sources_by_version and missing_versions:
+            raise ValueError("every chunk version requires document source metadata")
         self._bm25_index = BM25Index(self._chunks)
         self._dense_index: DenseIndex | None = None
 
@@ -96,8 +106,8 @@ class LocalSearchService:
             Ranked page-traceable chunks.
         """
         if mode is SearchMode.BM25:
-            return self._bm25_index.search(query, top_k)
-        if mode is SearchMode.RERANK:
+            hits = self._bm25_index.search(query, top_k)
+        elif mode is SearchMode.RERANK:
             if self._reranker is None:
                 raise ValueError("rerank mode requires a configured reranker")
             candidates = HybridIndex(
@@ -107,11 +117,14 @@ class LocalSearchService:
                 query,
                 max(top_k, self._rerank_candidate_k),
             )
-            return rerank_search_hits(query, candidates, self._reranker, top_k)
-        dense_index = self._get_dense_index()
-        if mode is SearchMode.DENSE:
-            return dense_index.search(query, top_k)
-        return HybridIndex(self._bm25_index, dense_index).search(query, top_k)
+            hits = rerank_search_hits(query, candidates, self._reranker, top_k)
+        else:
+            dense_index = self._get_dense_index()
+            if mode is SearchMode.DENSE:
+                hits = dense_index.search(query, top_k)
+            else:
+                hits = HybridIndex(self._bm25_index, dense_index).search(query, top_k)
+        return self._attach_sources(hits)
 
     def prepare(self, mode: SearchMode) -> None:
         """Prepare one retrieval strategy before latency measurement.
@@ -140,3 +153,30 @@ class LocalSearchService:
         if self._dense_index is None:
             self._dense_index = DenseIndex(self._chunks, self._embedder)
         return self._dense_index
+
+    def _attach_sources(
+        self,
+        hits: tuple[SearchHit, ...],
+    ) -> tuple[SearchHit, ...]:
+        """Attach public document metadata after ranking is complete.
+
+        Parameters
+        ----------
+        hits : tuple of SearchHit
+            Ranked hits produced by one local index strategy.
+
+        Returns
+        -------
+        tuple of SearchHit
+            Hits enriched from their chunk version identifiers.
+        """
+        if not self._sources_by_version:
+            return hits
+        return tuple(
+            SearchHit(
+                chunk=hit.chunk,
+                score=hit.score,
+                source=self._sources_by_version[hit.chunk.version_id],
+            )
+            for hit in hits
+        )

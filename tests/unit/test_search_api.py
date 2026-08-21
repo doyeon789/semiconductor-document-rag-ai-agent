@@ -8,14 +8,23 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from apps.api import main as api_main
 from apps.api.main import app, get_search_service
-from semiconductor_rag.domain import Chunk, ChunkType
+from semiconductor_rag.corpus import CorpusDocument, LoadedCorpus
+from semiconductor_rag.domain import Chunk, ChunkType, DocumentSource
 from semiconductor_rag.retrieval import (
     EmbeddingVector,
     LocalSearchService,
 )
 
 VERSION_ID = UUID("88888888-8888-4888-8888-888888888888")
+DOCUMENT_SOURCE = DocumentSource(
+    document_id="test-ai-security-guide",
+    title="Test AI Security Guide",
+    publisher="Test Publisher",
+    language="ko-KR",
+    version="1.0",
+)
 
 
 class ApiTestEmbedder:
@@ -163,6 +172,7 @@ def _provide_test_search_service() -> LocalSearchService:
         ],
         ApiTestEmbedder(),
         ApiTestReranker(),
+        sources_by_version={VERSION_ID: DOCUMENT_SOURCE},
     )
 
 
@@ -178,6 +188,7 @@ def _provide_low_confidence_search_service() -> LocalSearchService:
         [_make_chunk(1, 8, "공정 오류를 줄이는 방식")],
         ApiTestEmbedder(),
         LowConfidenceApiTestReranker(),
+        sources_by_version={VERSION_ID: DOCUMENT_SOURCE},
     )
 
 
@@ -198,6 +209,9 @@ def test_search_endpoint_returns_ranked_page_traceability() -> None:
     assert body["embedding_model"] == "api-test-embedding"
     assert body["reranker_model"] is None
     assert body["results"][0]["rank"] == 1
+    assert body["results"][0]["document_id"] == "test-ai-security-guide"
+    assert body["results"][0]["document_title"] == "Test AI Security Guide"
+    assert body["results"][0]["publisher"] == "Test Publisher"
     assert body["results"][0]["page_start"] == 8
     assert body["results"][0]["page_end"] == 8
     assert "산화 공정" in body["results"][0]["text"]
@@ -281,6 +295,8 @@ def test_answer_endpoint_returns_verified_page_citation() -> None:
     assert len(body["claims"]) == 1
     assert len(body["citations"]) == 1
     assert body["citations"][0]["page_number"] == 8
+    assert body["citations"][0]["document_id"] == "test-ai-security-guide"
+    assert body["citations"][0]["document_title"] == "Test AI Security Guide"
     assert body["citations"][0]["quote"] in "산화 공정은 절연막을 형성한다."
     assert body["termination_reason"] == "ANSWER_VALIDATED"
 
@@ -289,12 +305,25 @@ def test_document_pdf_endpoint_serves_inline_source(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Serve the configured source PDF for Citation page links."""
+    """Serve the matched corpus source PDF for Citation page links."""
     pdf_path = tmp_path / "source.pdf"
     pdf_path.write_bytes(b"%PDF-1.7\n%%EOF")
-    monkeypatch.setenv("DOCUMENT_PDF_PATH", str(pdf_path))
+    corpus = LoadedCorpus(
+        corpus_id="test-ai-security",
+        documents=(
+            CorpusDocument(
+                source=DOCUMENT_SOURCE,
+                version_id=VERSION_ID,
+                pdf_path=pdf_path,
+                page_count=1,
+                excluded_pages=(),
+                chunks=(),
+            ),
+        ),
+    )
+    monkeypatch.setattr(api_main, "get_corpus", lambda: corpus)
 
-    response = TestClient(app).get("/v1/documents/SEMI-8P-RAG-KO/pdf")
+    response = TestClient(app).get("/v1/documents/test-ai-security-guide/pdf")
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -302,8 +331,15 @@ def test_document_pdf_endpoint_serves_inline_source(
     assert response.content == pdf_path.read_bytes()
 
 
-def test_document_pdf_endpoint_rejects_unknown_document() -> None:
+def test_document_pdf_endpoint_rejects_unknown_document(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Return a normal 404 instead of exposing arbitrary filesystem paths."""
+    monkeypatch.setattr(
+        api_main,
+        "get_corpus",
+        lambda: LoadedCorpus(corpus_id="test-ai-security", documents=()),
+    )
     response = TestClient(app).get("/v1/documents/unknown/pdf")
 
     assert response.status_code == 404

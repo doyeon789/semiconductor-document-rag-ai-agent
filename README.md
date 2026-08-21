@@ -8,7 +8,7 @@ KISA·NIST·OWASP의 공개 AI 보안 문서를 검색하고<br>
 **문서명·PDF 페이지·원문 인용과 함께 답변하는 로컬 Agentic RAG**
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Corpus%20Migration-F59E0B)
+![Status](https://img.shields.io/badge/Status-Multi--Document%20Corpus-22C55E)
 ![Retrieval](https://img.shields.io/badge/Retrieval-BM25%20%2B%20Dense%20%2B%20Rerank-2563EB)
 ![License](https://img.shields.io/badge/Code%20License-MIT-22C55E)
 
@@ -34,10 +34,10 @@ AI 보안 지침은 기관과 버전마다 용어와 권고 범위가 다릅니�
 | 로컬 BM25·Dense·Hybrid·Rerank 검색 | 완료 |
 | 원문 발췌 답변·Citation 검증·답변 보류 | 완료 |
 | LangGraph 기반 제한된 재검색과 실행 trace | 완료 |
-| 6개 문서 통합 인덱싱과 문서별 메타데이터 연결 | **다음 작업** |
+| 6개 문서 통합 인덱싱과 문서별 메타데이터 연결 | 완료 |
 | AI 보안 질문 평가셋과 새 성능 기준 | **다음 작업** |
 
-현재 API와 UI는 기존 단일 PDF 파이프라인을 검증하는 단계입니다. 6개 문서 코퍼스의 다운로드와 무결성 검증은 끝났지만, 다중 문서 검색 결과에 실제 문서 제목과 식별자를 연결하는 작업은 아직 포함되지 않았습니다. 따라서 기존 평가 점수는 새 AI 보안 코퍼스의 성능으로 해석하지 않습니다.
+현재 API와 UI는 검증된 6개 PDF를 한 인덱스에서 검색합니다. 각 검색 결과와 Citation은 실제 source ID·문서명·기관·언어·버전·PDF 페이지를 보존합니다. 기존 평가 점수는 옛 단일 문서 질문셋의 회귀 참고값이므로 새 AI 보안 코퍼스의 성능으로 해석하지 않습니다.
 
 ## 공개 AI 보안 코퍼스
 
@@ -50,7 +50,7 @@ AI 보안 지침은 기관과 버전마다 용어와 권고 범위가 다릅니�
 | [Generative AI Profile](https://doi.org/10.6028/NIST.AI.600-1) | NIST | 영어 | 출처 표기 |
 | [GenAI LLM Top 10 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/) | OWASP | 영어 | CC BY-SA 4.0 |
 
-기계 판독 가능한 출처 정보는 [`data/corpus/sources.yaml`](./data/corpus/sources.yaml)에 있습니다. 2026-08-19 기준 6개 문서는 총 773쪽, 약 98.9만 자이며, 표지·이미지 목차·장 구분 간지·공백으로 확인한 16쪽은 `excluded_pages`에 기록했습니다.
+기계 판독 가능한 출처 정보는 [`data/corpus/sources.yaml`](./data/corpus/sources.yaml)에 있습니다. 2026-08-21 로더 검증에서 6개 문서 총 773쪽 중 표지·이미지 목차·장 구분 간지·공백 16쪽을 제외한 757쪽을 1,282개 페이지 추적 Chunk로 구성했습니다.
 
 ## 시작하기
 
@@ -68,7 +68,7 @@ uv sync --frozen
 
 PDF는 Git에서 제외된 `data/raw/ai-security/`에 저장되고, 다운로드 URL·시각·파일 크기·SHA-256은 같은 디렉터리의 `download_receipt.json`에 기록됩니다.
 
-현재 단일 문서 API/UI 스모크 테스트가 필요하면 `.env.example`의 `DOCUMENT_PDF_PATH`를 로컬 PDF로 설정한 뒤 실행합니다.
+기본 catalog와 PDF 디렉터리는 `.env.example`에 기록되어 있으며 필요할 때 `CORPUS_CATALOG_PATH`와 `CORPUS_PDF_DIR`로 변경할 수 있습니다.
 
 ```powershell
 # Terminal 1
@@ -83,14 +83,14 @@ PDF는 Git에서 제외된 `data/raw/ai-security/`에 저장되고, 다운로드
 ## 현재 검색 흐름
 
 ```text
-로컬 PDF
+공식 PDF 6종
   → PyMuPDF 네이티브 텍스트 추출
   → 물리 페이지 단위 Chunk
   → BM25 + 다국어 Dense 검색
   → Reciprocal Rank Fusion
   → 다국어 Cross-Encoder Reranking
   → Evidence 선택과 충분성 판정
-  → 원문 발췌 답변 + 페이지 Citation 또는 답변 보류
+  → 실제 문서명·원문 발췌·페이지 Citation 또는 답변 보류
 ```
 
 외부 LLM은 현재 답변 생성에 사용하지 않습니다. 답변은 검색된 PDF의 원문 문장을 추출해 구성하므로 API 키가 필요하지 않습니다.

@@ -54,9 +54,9 @@ def build_evidence_pack(
     hits : collections.abc.Sequence[SearchHit]
         Ranked page-traceable search results.
     document_id : str
-        Stable source document identifier.
+        Fallback source identifier for legacy hits without metadata.
     document_title : str
-        Human-readable source document title.
+        Fallback source title for legacy hits without metadata.
     max_evidence : int, default=5
         Maximum number of distinct page blocks to retain.
     retrieval_mode : SearchMode or None, default=None
@@ -93,12 +93,18 @@ def build_evidence_pack(
             continue
         if query_tokens.isdisjoint(tokenize_search_text(hit.chunk.text)):
             continue
+        source_document_id = (
+            hit.source.document_id if hit.source is not None else document_id
+        )
+        source_document_title = (
+            hit.source.title if hit.source is not None else document_title
+        )
         seen_pages.add(page_key)
         blocks.append(
             EvidenceBlock(
                 evidence_id=f"E{len(blocks) + 1}",
-                document_id=document_id,
-                document_title=document_title,
+                document_id=source_document_id,
+                document_title=source_document_title,
                 version_id=hit.chunk.version_id,
                 chunk_id=hit.chunk.chunk_id,
                 page_number=hit.chunk.page_start,

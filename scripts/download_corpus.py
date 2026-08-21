@@ -12,67 +12,15 @@ from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-import yaml
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from semiconductor_rag.corpus import (
+    DEFAULT_CATALOG_PATH,
+    CorpusCatalog,
+    CorpusSource,
+    load_catalog,
+)
 
-DEFAULT_CATALOG_PATH = Path("data/corpus/sources.yaml")
 DOWNLOAD_CHUNK_SIZE = 1024 * 1024
 USER_AGENT = "ai-security-document-rag/0.1 (+public-corpus-downloader)"
-
-
-class SourceLicense(BaseModel):
-    """Describe the recorded redistribution terms for one source document."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    identifier: str = Field(min_length=1)
-    reference_url: HttpUrl | None = None
-    redistribution: Literal[
-        "allowed-with-attribution",
-        "allowed-with-license",
-        "verify-before-redistribution",
-    ]
-    notice: str = Field(min_length=1)
-
-
-class CorpusSource(BaseModel):
-    """Describe one versioned PDF source and its official locations."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    id: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-    title: str = Field(min_length=1)
-    publisher: str = Field(min_length=1)
-    language: str = Field(pattern=r"^[a-z]{2}-[A-Z]{2}$")
-    version: str = Field(min_length=1)
-    published_at: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
-    updated_at: str | None = Field(
-        default=None,
-        pattern=r"^\d{4}-\d{2}-\d{2}$",
-    )
-    landing_page_url: HttpUrl
-    download_url: HttpUrl | None = None
-    filename: str = Field(pattern=r"^[a-z0-9][a-z0-9_\-]*\.pdf$")
-    expected_page_count: int | None = Field(default=None, ge=1)
-    expected_sha256: str | None = Field(
-        default=None,
-        pattern=r"^[0-9a-f]{64}$",
-    )
-    excluded_pages: tuple[int, ...] = ()
-    license: SourceLicense
-
-
-class CorpusCatalog(BaseModel):
-    """Describe a reproducible collection of public PDF sources."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    schema_version: Literal[1]
-    corpus_id: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-    title: str = Field(min_length=1)
-    description: str = Field(min_length=1)
-    default_output_dir: Path
-    sources: tuple[CorpusSource, ...] = Field(min_length=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,47 +57,6 @@ def parse_args() -> argparse.Namespace:
     selection.add_argument("--source", action="append", dest="source_ids")
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
-
-
-def load_catalog(path: Path) -> CorpusCatalog:
-    """Load and validate a public PDF source catalog.
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        YAML catalog path.
-
-    Returns
-    -------
-    CorpusCatalog
-        Validated catalog and source metadata.
-
-    Raises
-    ------
-    ValueError
-        If the YAML root is not a mapping, identifiers or filenames repeat,
-        or excluded page numbers are invalid.
-    """
-    raw_catalog = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(raw_catalog, dict):
-        raise ValueError("corpus catalog root must be a mapping")
-    catalog = CorpusCatalog.model_validate(raw_catalog)
-    source_ids = [source.id for source in catalog.sources]
-    if len(source_ids) != len(set(source_ids)):
-        raise ValueError("corpus source ids must be unique")
-    filenames = [source.filename for source in catalog.sources]
-    if len(filenames) != len(set(filenames)):
-        raise ValueError("corpus source filenames must be unique")
-    for source in catalog.sources:
-        if any(page < 1 for page in source.excluded_pages):
-            raise ValueError(f"source {source.id} excluded pages must be positive")
-        if len(source.excluded_pages) != len(set(source.excluded_pages)):
-            raise ValueError(f"source {source.id} excluded pages must be unique")
-        if source.expected_page_count is not None and any(
-            page > source.expected_page_count for page in source.excluded_pages
-        ):
-            raise ValueError(f"source {source.id} excluded pages exceed its page count")
-    return catalog
 
 
 def select_sources(

@@ -80,6 +80,21 @@ class DocumentLanguage(StrEnum):
     UNKNOWN = "unknown"
 
 
+class DocumentSource(DomainModel):
+    """Describe public source metadata carried through retrieval.
+
+    This compact contract uses the catalog's stable string identifier rather
+    than the UUID-based upload model because public corpus entries already have
+    human-readable, versioned identifiers.
+    """
+
+    document_id: NonEmptyString
+    title: NonEmptyString
+    publisher: NonEmptyString
+    language: NonEmptyString
+    version: NonEmptyString
+
+
 class IngestionStatus(StrEnum):
     """Represent a document version's ingestion lifecycle state."""
 
