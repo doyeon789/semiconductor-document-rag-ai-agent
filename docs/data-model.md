@@ -2,236 +2,81 @@
 
 ## 1. 목적
 
-검색 결과와 답변 Citation에서 원본 PDF 페이지까지 손실 없이 추적할 수 있는 데이터 계약을 정의한다. PostgreSQL을 metadata source of truth로 사용하고 Qdrant와 OpenSearch는 재생성 가능한 projection으로 취급한다.
+검색 결과와 답변이 원본 PDF의 정확한 문서 버전과 물리 페이지로 역추적되도록 하는 데이터 계약을 설명합니다. 현재 객체는 Pydantic 모델이며 영구 DB에는 저장하지 않습니다.
 
-## 2. Entity Relationship
+## 2. 현재 핵심 모델
 
 ```mermaid
 erDiagram
     DOCUMENT ||--o{ DOCUMENT_VERSION : has
     DOCUMENT_VERSION ||--|{ PAGE : contains
     PAGE ||--o{ ELEMENT : contains
-    DOCUMENT_VERSION ||--o{ TABLE : contains
-    PAGE ||--o{ TABLE : located_on
-    ELEMENT }o--o{ CHUNK : grouped_into
-    TABLE ||--o{ CHUNK : represented_by
-    DOCUMENT_VERSION ||--o{ CHUNK : indexed_as
-    QUERY ||--o{ RETRIEVAL_RESULT : produces
-    CHUNK ||--o{ RETRIEVAL_RESULT : ranked_as
-    ANSWER ||--|{ CLAIM : contains
-    CLAIM ||--o{ CITATION : supported_by
-    CHUNK ||--o{ CITATION : references
-    INGESTION_JOB }o--|| DOCUMENT_VERSION : processes
+    DOCUMENT_VERSION ||--o{ CHUNK : produces
+    CHUNK ||--o{ EVIDENCE : retrieved_as
+    EVIDENCE ||--o{ CITATION : supports
+    CLAIM ||--|{ CITATION : references
 ```
 
-## 3. Core Entities
-
-### 3.1 Document
-
-논리적으로 동일한 문서를 나타낸다.
-
-| Field | Type | Rule |
+| 모델 | 핵심 필드 | 불변식 |
 | --- | --- | --- |
-| `document_id` | UUID | 영구 식별자 |
-| `title` | string | 사용자 표시 제목 |
-| `document_type` | enum | `paper`, `manual`, `process_doc`, `datasheet`, `other` |
-| `language` | enum | `ko`, `en`, `mixed`, `unknown` |
-| `source_uri` | string/null | 허용된 원본 출처 |
-| `license_type` | string/null | 문서 이용 조건 |
-| `access_scope` | string | MVP 기본값 `public-demo` |
-| `created_at` | datetime | UTC |
-| `deleted_at` | datetime/null | soft delete |
+| `Document` | `document_id`, `title`, `document_type`, `language`, `source_uri` | 제목과 식별자가 비어 있지 않습니다. |
+| `DocumentVersion` | `version_id`, `content_sha256`, `parser_config_hash`, `page_count` | 해시는 64자 소문자 SHA-256입니다. |
+| `Page` | `page_id`, `version_id`, `page_number`, `width`, `height`, `text_coverage` | `page_number`는 1 이상입니다. |
+| `Element` | `element_id`, `page_id`, `text`, `reading_order`, `bbox` | 텍스트가 비어 있지 않고 bbox 좌표가 유효합니다. |
+| `Chunk` | `chunk_id`, `version_id`, `text`, `page_start`, `page_end`, `content_hash` | `page_end >= page_start`입니다. |
+| `EvidenceBlock` | `document_id`, `document_title`, `version_id`, `chunk_id`, `page_number`, `text`, `score` | 한 Evidence는 한 PDF 페이지에 속합니다. |
+| `GroundedCitation` | Claim·Evidence·Chunk·Document·Version ID, `page_number`, `quote` | quote가 연결된 Evidence 원문에 포함됩니다. |
+| `AgentRun` | 답변, 검색 모드·질의, step, 종료 이유, trace | 종료 이유와 실행 경로를 재구성할 수 있습니다. |
 
-### 3.2 DocumentVersion
+## 3. 식별자와 페이지 규칙
 
-동일 문서의 특정 파일과 파싱 설정 조합을 나타낸다.
+- PDF 페이지 번호는 항상 파일의 1-based 물리 페이지입니다.
+- `version_id`에서 `page:{page_number}`로 UUID를 파생합니다.
+- `page_id`와 읽기 순서에서 Element UUID를 파생합니다.
+- Chunk ID와 content hash는 같은 입력에서 안정적으로 다시 만들어져야 합니다.
+- 서로 다른 문서는 페이지 번호가 같아도 `document_id`와 `version_id`로 구분합니다.
 
-| Field | Type | Rule |
-| --- | --- | --- |
-| `version_id` | UUID | 버전 식별자 |
-| `document_id` | UUID | Document FK |
-| `content_sha256` | string | 원본 파일 hash |
-| `parser_config_hash` | string | 파서·OCR·Chunk 설정 hash |
-| `parser_version` | string | 코드 또는 image version |
-| `page_count` | integer | PDF 물리 페이지 수 |
-| `status` | enum | ingestion 상태 |
-| `object_key` | string | 원본 PDF 위치 |
-| `is_active` | boolean | 검색 활성 버전 여부 |
+## 4. 코퍼스 출처 모델
 
-`content_sha256 + parser_config_hash`는 동일 처리 요청의 idempotency key로 사용한다.
+`data/corpus/sources.yaml`의 각 항목은 다음 정보를 가집니다.
 
-### 3.3 Page
-
-| Field | Type | Rule |
-| --- | --- | --- |
-| `page_id` | UUID | 페이지 식별자 |
-| `version_id` | UUID | DocumentVersion FK |
-| `page_number` | integer | PDF 기준 1-based, 1 이상 |
-| `printed_page_label` | string/null | 문서에 인쇄된 페이지 표기 |
-| `width` | float | PDF point 또는 정규화 좌표 기준 |
-| `height` | float | PDF point 또는 정규화 좌표 기준 |
-| `text_coverage` | float | 페이지 면적 대비 text block coverage |
-| `ocr_used` | boolean | OCR 사용 여부 |
-| `ocr_confidence` | float/null | 0~1 |
-| `image_object_key` | string/null | 렌더링 이미지 위치 |
-
-Unique constraint: `(version_id, page_number)`.
-
-### 3.4 Element
-
-파서가 추출한 최소 레이아웃 단위다.
-
-| Field | Type | Rule |
-| --- | --- | --- |
-| `element_id` | UUID | Element 식별자 |
-| `page_id` | UUID | Page FK |
-| `element_type` | enum | `title`, `heading`, `paragraph`, `list`, `table`, `caption`, `footer`, `header` |
-| `text` | text | 정규화된 텍스트 |
-| `reading_order` | integer | 페이지 내 순서 |
-| `bbox` | float[4]/null | `[x0, y0, x1, y1]` |
-| `parser_confidence` | float/null | 0~1 |
-| `metadata` | JSON | parser-specific 최소 정보 |
-
-Header/footer로 판정된 반복 Element는 원문 추적을 위해 저장하되 기본 Chunk에서 제외할 수 있다.
-
-### 3.5 Table
-
-| Field | Type | Rule |
-| --- | --- | --- |
-| `table_id` | UUID | 표 식별자 |
-| `version_id` | UUID | DocumentVersion FK |
-| `page_id` | UUID | 시작 페이지 FK |
-| `caption` | string/null | 표 제목 |
-| `header` | JSON array | 정규화된 열 이름 |
-| `rows` | JSON array | 행 데이터 |
-| `markdown` | text | 검색·LLM용 직렬화 |
-| `bbox` | float[4]/null | 페이지 좌표 |
-| `spans_pages` | boolean | 다중 페이지 여부 |
-
-표는 구조화 JSON과 Markdown 표현을 함께 보관한다. 답변 값은 가능하면 행·열 좌표를 Citation metadata로 남긴다.
-
-### 3.6 Chunk
-
-| Field | Type | Rule |
-| --- | --- | --- |
-| `chunk_id` | UUID | Chunk 식별자 |
-| `version_id` | UUID | DocumentVersion FK |
-| `chunk_type` | enum | `text`, `table`, `caption` |
-| `text` | text | embedding·BM25 입력 |
-| `element_ids` | UUID[] | 포함 Element 순서 |
-| `page_start` | integer | 1-based |
-| `page_end` | integer | 1-based, `page_start` 이상 |
-| `section_path` | string[] | 상위 제목 계층 |
-| `token_count` | integer | 선택 tokenizer 기준 |
-| `content_hash` | string | 중복 검출 |
-| `embedding_version` | string/null | 색인 모델 버전 |
-
-#### Chunk Invariants
-
-- `page_start`와 `page_end` 사이의 모든 페이지가 실제 원문에 존재한다.
-- 한 Chunk는 기본적으로 한 페이지에 속한다.
-- 문장이 페이지 경계를 넘을 때만 최대 두 페이지를 허용한다.
-- 표의 행·열 관계는 일반 문단 Chunk와 섞지 않는다.
-- Chunk text에 문서명, section path, 표 caption을 context prefix로 추가할 수 있으나 원문 text와 구분한다.
-
-## 4. Query & Retrieval Entities
-
-### Query
-
-```json
-{
-  "query_id": "uuid",
-  "raw_query": "ALD와 CVD 온도 조건을 비교해줘",
-  "normalized_query": "ALD CVD deposition temperature condition comparison",
-  "expansions": ["atomic layer deposition", "chemical vapor deposition"],
-  "filters": {"document_ids": [], "document_type": ["paper"]},
-  "audience": "researcher"
-}
+```yaml
+id: nist-ai-rmf-1-0
+organization: NIST
+title: Artificial Intelligence Risk Management Framework (AI RMF 1.0)
+language: en-US
+landing_page_url: https://doi.org/10.6028/NIST.AI.100-1
+download_url: https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
+filename: nist_ai_rmf_1_0_en.pdf
+expected_page_count: 48
+expected_sha256: "..."
+excluded_pages: []
+license:
+  identifier: US-PD
+  redistribution: allowed_with_attribution
 ```
 
-### RetrievalResult
+다중 문서 로더는 이 `id`를 검색·Evidence·Citation의 `document_id`로 사용하고 제목과 로컬 파일 경로를 함께 전달해야 합니다.
 
-| Field | 설명 |
-| --- | --- |
-| `query_id` | 검색 요청 |
-| `chunk_id` | 후보 Chunk |
-| `dense_rank`, `dense_score` | Dense 검색 값 |
-| `keyword_rank`, `keyword_score` | BM25 검색 값 |
-| `fusion_rank`, `fusion_score` | Fusion 결과 |
-| `rerank_score` | Cross-Encoder 점수 |
-| `final_rank` | Evidence Pack 순서 |
-| `retrieval_run_id` | 설정·모델 버전과 연결 |
+## 5. 현재와 다음의 차이
 
-서로 다른 검색 엔진의 raw score를 직접 더하지 않는다. 기본 Fusion은 rank 기반 RRF를 사용한다.
-
-## 5. Answer & Citation Entities
-
-### Claim
-
-독립적으로 참·거짓과 근거를 검증할 수 있는 최소 답변 문장이다.
-
-### Citation
-
-| Field | Type | Rule |
+| 항목 | 현재 | 다음 |
 | --- | --- | --- |
-| `citation_id` | UUID | 식별자 |
-| `claim_id` | UUID | Claim FK |
-| `chunk_id` | UUID | 근거 Chunk FK |
-| `document_id` | UUID | 빠른 표시용 denormalized field |
-| `version_id` | UUID | 답변 당시 문서 버전 |
-| `page_number` | integer | PDF 1-based 페이지 |
-| `quote` | string | 짧은 근거 발췌 |
-| `bbox` | float[4]/null | 가능할 때 발췌 위치 |
-| `support` | enum | `supports`, `contradicts`, `context_only` |
-| `validation_score` | float/null | Citation validator 결과 |
+| 문서 수 | API당 고정 PDF 1개 | 매니페스트 6개 |
+| 문서 metadata | API 상수 | 출처 매니페스트에서 로드 |
+| 제외 페이지 | 고정 집합 | 문서별 `excluded_pages` |
+| 검색 인덱스 | 메모리 | 메모리 유지, 모든 문서 통합 |
+| 영구 저장 | 없음 | 현재 필요 없음 |
 
-Citation은 반드시 특정 `version_id`를 참조한다. 이후 문서가 재색인되어도 과거 답변의 근거를 재현할 수 있어야 한다.
+## 6. Citation 검증 조건
 
-## 6. Storage Mapping
+Citation은 다음 조건을 모두 만족해야 합니다.
 
-| Data | PostgreSQL | Qdrant | OpenSearch | Object Storage |
-| --- | :---: | :---: | :---: | :---: |
-| Document metadata | ✓ | payload | fields |  |
-| Original PDF | object key |  |  | ✓ |
-| Page metadata | ✓ | payload 일부 | fields 일부 | page image |
-| Element | ✓ |  |  | parsed artifact 선택 |
-| Chunk text | ✓ | payload | document body |  |
-| Dense vector | version metadata | ✓ |  |  |
-| BM25 index | version metadata |  | ✓ |  |
-| Evaluation run | ✓ |  |  | report artifact |
+1. `evidence_id`, `chunk_id`, `document_id`, `version_id`가 선택된 Evidence와 같습니다.
+2. `page_number`가 Evidence 페이지와 같습니다.
+3. `quote`가 Evidence text의 정확한 부분 문자열입니다.
+4. 다중 문서 응답에서는 표시 제목과 PDF 링크가 같은 `document_id`를 사용합니다.
 
-## 7. Versioning Rules
+## 7. 후속 확장 조건
 
-- Parser, OCR, Chunker, Embedding, Reranker, glossary는 각각 version을 가진다.
-- evaluation run에는 Git commit SHA와 모든 component version을 기록한다.
-- 모델이나 Chunking 정책이 바뀌면 기존 검색 인덱스를 덮지 않고 새 index version을 생성한다.
-- 활성 index alias 전환은 전체 문서 색인과 smoke test가 성공한 후 수행한다.
-
-## 8. Example Evidence Pack
-
-```json
-{
-  "query_id": "query-1",
-  "retrieval_run_id": "run-1",
-  "items": [
-    {
-      "chunk_id": "chunk-1",
-      "document_title": "ALD Process Guide",
-      "page_start": 12,
-      "page_end": 12,
-      "section_path": ["Process Window", "Temperature"],
-      "content_type": "text",
-      "text": "The recommended substrate temperature is ...",
-      "rerank_score": 0.91
-    }
-  ]
-}
-```
-
-## 9. 관련 문서
-
-- [Requirements](./requirements.md)
-- [Ingestion Design](./ingestion-design.md)
-- [Retrieval Design](./retrieval-design.md)
-- [ADR-0001](./adr/0001-page-centric-evidence-model.md)
-
+현재 규모에서는 DB schema가 필요하지 않습니다. 코퍼스가 메모리 처리 범위를 넘거나 문서 업로드·증분 색인이 필요해질 때만 영구 저장과 인덱스 버전 모델을 별도 ADR로 설계합니다.

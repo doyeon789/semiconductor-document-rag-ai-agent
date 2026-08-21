@@ -1,300 +1,116 @@
 # API Contract
 
-## 1. 원칙
+## 1. 현재 범위
 
-- Base path는 `/v1`을 사용한다.
-- 외부 응답은 Pydantic schema로 검증한다.
-- ID, page number, status는 자유 형식 문자열이 아닌 typed field로 제공한다.
-- 모든 응답에 `request_id` 또는 `trace_id`를 포함한다.
-- 시간이 오래 걸리는 ingestion·evaluation은 job resource로 모델링한다.
-- MVP answer API는 비스트리밍을 기본으로 하며, streaming은 후속 endpoint로 추가한다.
+FastAPI는 로컬에서 설정한 PDF 한 개를 메모리에 인덱싱합니다. 문서 업로드, 목록, 비동기 ingestion job과 평가 API는 아직 없습니다. `/docs`의 OpenAPI 화면을 현재 계약의 최종 기준으로 사용합니다.
 
-## 2. 공통 헤더
+## 2. Endpoints
 
-| Header | 방향 | 설명 |
+| Method | Path | 역할 |
 | --- | --- | --- |
-| `X-Request-ID` | Request/Response | 없으면 서버가 생성 |
-| `Idempotency-Key` | Request | 문서 등록 등 재시도 가능한 쓰기 요청 |
-| `X-Trace-ID` | Response | Agent·검색 trace 식별자 |
+| `GET` | `/health/live` | 프로세스 liveness 확인 |
+| `GET` | `/v1/documents/{document_id}/pdf` | Citation 링크용 로컬 PDF 반환 |
+| `POST` | `/v1/search` | 선택한 검색 모드로 Chunk 검색 |
+| `POST` | `/v1/answers` | Rerank Evidence 기반 추출형 답변 또는 보류 |
+| `POST` | `/v1/agent/answers` | 제한된 재검색과 trace를 포함한 Agent 답변 |
 
-## 3. Common Error
-
-```json
-{
-  "error": {
-    "code": "DOCUMENT_NOT_READY",
-    "message": "The document has not finished indexing.",
-    "details": {
-      "document_id": "doc-1",
-      "status": "INDEXING"
-    },
-    "retryable": true
-  },
-  "request_id": "request-1"
-}
-```
-
-| HTTP | Code | 의미 |
-| ---: | --- | --- |
-| 400 | `INVALID_REQUEST` | schema 외 의미 검증 실패 |
-| 400 | `INVALID_PDF` | PDF signature 또는 구조 오류 |
-| 400 | `ENCRYPTED_PDF` | 지원하지 않는 암호화 PDF |
-| 404 | `DOCUMENT_NOT_FOUND` | 문서 없음 또는 접근 불가 |
-| 404 | `PAGE_NOT_FOUND` | 실제 페이지 범위 밖 |
-| 409 | `DOCUMENT_NOT_READY` | 파싱·색인 미완료 |
-| 409 | `VERSION_CONFLICT` | stale document/index version |
-| 413 | `FILE_TOO_LARGE` | 업로드 제한 초과 |
-| 422 | `VALIDATION_ERROR` | Pydantic/JSON Schema 오류 |
-| 429 | `RATE_LIMITED` | 요청 제한 초과 |
-| 502 | `DEPENDENCY_ERROR` | 검색·LLM·storage 오류 |
-| 504 | `TIMEOUT` | 요청 시간 초과 |
-
-## 4. Documents
-
-### 4.1 `POST /v1/documents`
-
-PDF를 등록하고 비동기 ingestion job을 생성한다.
-
-Request: `multipart/form-data`
-
-| Field | Type | Required |
-| --- | --- | :---: |
-| `file` | PDF binary | ✓ |
-| `title` | string |  |
-| `document_type` | enum |  |
-| `language` | enum |  |
-| `source_uri` | string |  |
-| `license_type` | string |  |
-
-Response `202 Accepted`:
-
-```json
-{
-  "document_id": "doc-1",
-  "version_id": "version-1",
-  "job_id": "job-1",
-  "status": "UPLOADED",
-  "request_id": "request-1"
-}
-```
-
-동일 `Idempotency-Key` 또는 동일 파일·파서 설정이면 기존 version/job을 반환할 수 있다.
-
-### 4.2 `GET /v1/documents`
-
-Query parameters:
-
-```text
-status, document_type, language, cursor, limit
-```
-
-### 4.3 `GET /v1/documents/{document_id}`
-
-```json
-{
-  "document_id": "doc-1",
-  "title": "Equipment Manual",
-  "document_type": "manual",
-  "language": "en",
-  "active_version": {
-    "version_id": "version-1",
-    "status": "READY",
-    "page_count": 120,
-    "parser_version": "parser@sha"
-  },
-  "quality": {
-    "parsed_page_ratio": 1.0,
-    "ocr_page_ratio": 0.1,
-    "table_count": 14,
-    "chunk_count": 620
-  }
-}
-```
-
-### 4.4 `GET /v1/documents/{document_id}/pages/{page_number}`
-
-Query:
-
-- `version_id`: 생략 시 active version
-- `include_elements`: 기본 `true`
-- `include_image_url`: 기본 `true`
-
-Response:
-
-```json
-{
-  "document_id": "doc-1",
-  "version_id": "version-1",
-  "page_number": 42,
-  "printed_page_label": "4-12",
-  "text": "...",
-  "elements": [],
-  "image_url": "/v1/documents/doc-1/pages/42/image",
-  "ocr_used": false
-}
-```
-
-### 4.5 `DELETE /v1/documents/{document_id}`
-
-후속 관리 기능이다. metadata soft delete와 검색 비활성화를 즉시 수행하고 binary/index 정리는 비동기 job으로 처리한다. 실제 도입 전 접근 제어를 구현해야 한다.
-
-## 5. Jobs
-
-### `GET /v1/jobs/{job_id}`
-
-```json
-{
-  "job_id": "job-1",
-  "job_type": "INGESTION",
-  "status": "INDEXING",
-  "progress": {
-    "stage": "qdrant_index",
-    "completed": 540,
-    "total": 620
-  },
-  "warnings": [],
-  "error": null,
-  "created_at": "2026-08-07T00:00:00Z",
-  "updated_at": "2026-08-07T00:02:00Z"
-}
-```
-
-## 6. Search
+## 3. Search
 
 ### `POST /v1/search`
 
-Request:
-
 ```json
 {
-  "query": "Vacuum Interlock 원인과 조치 절차",
-  "filters": {
-    "document_ids": ["doc-1"],
-    "document_types": ["manual"],
-    "languages": ["en", "ko"]
-  },
-  "intent": null,
-  "top_k": 8,
-  "include_debug_scores": false
+  "query": "프롬프트 인젝션 완화 방법",
+  "mode": "rerank",
+  "top_k": 5
 }
 ```
 
-Response:
+`mode`는 `bm25`, `dense`, `hybrid`, `rerank` 중 하나입니다. `top_k`는 1~20입니다.
 
 ```json
 {
-  "query_id": "query-1",
-  "retrieval_run_id": "retrieval-1",
-  "intent": "procedure",
-  "expansions": [],
-  "sufficiency": "SUFFICIENT",
+  "query_id": "uuid",
+  "document_id": "configured-document-id",
+  "mode": "rerank",
+  "embedding_model": null,
+  "reranker_model": "jinaai/jina-reranker-v2-base-multilingual",
   "results": [
     {
       "rank": 1,
-      "chunk_id": "chunk-1",
-      "document_id": "doc-1",
-      "version_id": "version-1",
-      "document_title": "Equipment Manual",
-      "page_start": 42,
-      "page_end": 42,
-      "section_path": ["Troubleshooting", "Vacuum Interlock"],
-      "content_type": "text",
-      "highlight": "Check chamber pressure and vacuum valve status.",
-      "scores": null
+      "chunk_id": "uuid",
+      "version_id": "uuid",
+      "page_start": 12,
+      "page_end": 12,
+      "text": "source text",
+      "score": 0.82
     }
   ],
-  "latency_ms": 410,
-  "request_id": "request-1"
+  "latency_ms": 123.4
 }
 ```
 
-## 7. Answers
+## 4. Grounded Answer
 
 ### `POST /v1/answers`
 
-Request:
-
 ```json
 {
-  "question": "두 문서에서 ALD와 CVD 온도 조건을 비교해줘",
-  "filters": {
-    "document_ids": ["doc-1", "doc-2"]
-  },
-  "audience": "researcher",
-  "include_retrieval_summary": true
+  "question": "프롬프트 인젝션 완화 방법은?",
+  "top_k": 5,
+  "max_claims": 2
 }
 ```
 
-Response:
+- `top_k`: 1~10
+- `max_claims`: 1~3
+- 검색 모드는 항상 `rerank`입니다.
+- 답변은 외부 LLM이 아닌 Evidence 원문 발췌입니다.
+
+성공 응답의 핵심 필드:
 
 ```json
 {
-  "answer": "문서 A는 ... 반면 문서 B는 ...",
+  "answer": "- 검증된 원문 문장 (문서명, p.12)",
   "abstained": false,
-  "abstention_reason": null,
-  "claims": [
-    {
-      "claim_id": "claim-1",
-      "text": "문서 A의 ALD 조건은 250°C이다.",
-      "citation_ids": ["citation-1"],
-      "inference": false
-    }
-  ],
+  "claims": [],
   "citations": [
     {
-      "citation_id": "citation-1",
-      "document_id": "doc-1",
-      "version_id": "version-1",
-      "document_title": "ALD Process Guide",
+      "document_id": "configured-document-id",
+      "document_title": "configured title",
       "page_number": 12,
-      "printed_page_label": null,
-      "quote": "The deposition temperature was 250°C.",
-      "chunk_id": "chunk-1",
-      "support": "supports"
+      "quote": "검증된 원문 문장"
     }
   ],
-  "retrieval_summary": {
-    "attempts": 2,
-    "evidence_count": 6,
-    "sufficiency": "SUFFICIENT"
-  },
+  "evidence_count": 5,
+  "sufficiency": "SUFFICIENT",
   "termination_reason": "ANSWER_VALIDATED",
-  "trace_id": "trace-1",
-  "request_id": "request-1"
+  "latency_ms": 456.7
 }
 ```
 
-### Abstention Response
-
-HTTP status는 정상적인 제품 동작이므로 `200 OK`를 사용한다.
+근거 부족은 오류가 아닌 `200 OK`입니다.
 
 ```json
 {
   "answer": null,
   "abstained": true,
-  "abstention_reason": {
-    "code": "EVIDENCE_INSUFFICIENT",
-    "message": "등록된 문서에서 질문을 뒷받침할 근거를 찾지 못했습니다.",
-    "missing_information": ["해당 장비 모델의 maintenance manual"]
-  },
   "claims": [],
   "citations": [],
-  "termination_reason": "RETRIEVAL_LIMIT_REACHED",
-  "trace_id": "trace-2"
+  "sufficiency": "INSUFFICIENT",
+  "termination_reason": "EVIDENCE_INSUFFICIENT"
 }
 ```
 
+## 5. Agent Answer
+
 ### `POST /v1/agent/answers`
-
-LangGraph가 입력 안전 분류 후 검색 결과에 따라 답변, 재검색, Citation 복구 또는 보류를 선택한다. 첫 검색은 BM25를 사용하고, 근거가 없거나 상위 결과가 애매하면 반도체 용어를 확장한 뒤 Reranker로 한 번 더 검색한다. 각 tool call과 전체 graph step에는 실행 상한이 있다.
-
-Request:
 
 ```json
 {
-  "question": "건식 산화와 습식 산화의 선택 기준은?",
+  "question": "AI 레드티밍 절차는?",
   "top_k": 5,
-  "max_claims": 1,
+  "max_claims": 2,
   "max_retrieval_attempts": 2,
   "max_steps": 14,
   "tool_timeout_seconds": 45.0,
@@ -302,109 +118,32 @@ Request:
 }
 ```
 
-Response의 `answer`는 기존 Grounded Answer 계약을 재사용하고 Agent trajectory를 함께 반환한다.
+응답은 Grounded Answer에 다음 실행 정보를 더합니다.
 
-```json
-{
-  "trace_id": "7c880132-f334-4f2e-bd4f-d069bf54a1df",
-  "question": "건식 산화와 습식 산화의 선택 기준은?",
-  "question_class": "DOCUMENT_QUERY",
-  "answer": {
-    "answer": "- 습식 산화는 ... (반도체 8대 제조 공정, p.8)",
-    "abstained": false,
-    "abstention_reason": null,
-    "claims": [
-      {
-        "claim_id": "11111111-1111-4111-8111-111111111111",
-        "text": "습식 산화는 빠른 성장 속도에 적합하다.",
-        "citation_ids": ["22222222-2222-4222-8222-222222222222"],
-        "inference": false
-      }
-    ],
-    "citations": [
-      {
-        "citation_id": "22222222-2222-4222-8222-222222222222",
-        "claim_id": "11111111-1111-4111-8111-111111111111",
-        "evidence_id": "E1",
-        "chunk_id": "33333333-3333-4333-8333-333333333333",
-        "document_id": "SEMI-8P-RAG-KO",
-        "document_title": "반도체 8대 제조 공정",
-        "version_id": "44444444-4444-4444-8444-444444444444",
-        "page_number": 8,
-        "quote": "습식 산화는 빠른 성장 속도에 적합하다.",
-        "support": "supports",
-        "validation_score": 1.0
-      }
-    ],
-    "evidence_count": 5,
-    "sufficiency": "SUFFICIENT",
-    "termination_reason": "ANSWER_VALIDATED"
-  },
-  "step_count": 11,
-  "retrieval_attempts": 2,
-  "search_queries": [
-    "건식 산화와 습식 산화의 선택 기준은?",
-    "건식 산화와 습식 산화의 선택 기준은?"
-  ],
-  "search_modes": ["bm25", "rerank"],
-  "tool_errors": [],
-  "repair_attempts": 0,
-  "termination_reason": "ANSWER_VALIDATED",
-  "trace": [
-    {
-      "sequence": 1,
-      "name": "question.classified",
-      "query": null,
-      "mode": null,
-      "detail": "DOCUMENT_QUERY"
-    }
-  ]
-}
-```
+- `trace_id`
+- `question_class`
+- `step_count`, `retrieval_attempts`, `repair_attempts`
+- `search_queries`, `search_modes`
+- `tool_errors`
+- `termination_reason`
+- 순서가 있는 `trace`
 
-정상적인 답변 보류도 `200 OK`를 사용한다. `termination_reason`은 `ANSWER_VALIDATED`, `RETRIEVAL_LIMIT_REACHED`, `ANSWER_VALIDATION_FAILED`, `PROMPT_INJECTION_DETECTED`, `STEP_LIMIT_REACHED`, `TOOL_ERROR`, `TOOL_TIMEOUT` 중 하나다. 오류 메시지 원문은 노출하지 않고 `tool_errors`와 trace에는 오류 타입만 기록한다.
+종료 이유는 `ANSWER_VALIDATED`, `RETRIEVAL_LIMIT_REACHED`, `ANSWER_VALIDATION_FAILED`, `PROMPT_INJECTION_DETECTED`, `STEP_LIMIT_REACHED`, `TOOL_ERROR`, `TOOL_TIMEOUT` 중 하나입니다.
 
-## 8. Evaluations
+## 6. PDF
 
-### `POST /v1/evaluations/runs`
+### `GET /v1/documents/{document_id}/pdf`
 
-```json
-{
-  "dataset_id": "eval-v1",
-  "configuration_id": "hybrid-rerank-v1",
-  "suites": ["retrieval", "citation", "agent"]
-}
-```
+설정된 단일 `document_id`만 허용하며 PDF를 브라우저 inline 응답으로 반환합니다. UI는 `#page=N` fragment를 붙여 Citation 페이지를 엽니다.
 
-Response: `202 Accepted` with `job_id` and `evaluation_run_id`.
+다중 문서 전환 후에는 source ID별 실제 PDF 경로를 조회하도록 교체합니다.
 
-### `GET /v1/evaluations/runs/{run_id}`
+## 7. 오류
 
-평가 상태, configuration snapshot, Git SHA, aggregate metrics, report artifact 위치를 반환한다.
+- 요청 schema 오류: FastAPI `422`
+- 알 수 없는 문서 ID 또는 없는 PDF: `404`
+- 설정된 PDF 파싱 실패: 검색 서비스 준비 시 `503`
+- 근거 부족: `200` + `abstained=true`
+- Agent tool timeout·오류: 가능한 경우 구조화된 Agent 종료 응답
 
-## 9. Pagination
-
-목록 API는 cursor pagination을 사용한다.
-
-```json
-{
-  "items": [],
-  "next_cursor": "opaque-or-null"
-}
-```
-
-## 10. Contract Test Requirements
-
-- OpenAPI schema snapshot test
-- Pydantic request/response serialization test
-- MCP tool schema와 내부 use case schema 호환성 test
-- 실제 page range를 벗어난 요청 test
-- abstention이 HTTP error로 변환되지 않는지 test
-- stale version과 index mismatch error test
-
-## 11. 관련 문서
-
-- [Requirements](./requirements.md)
-- [Data Model](./data-model.md)
-- [Agent & MCP Design](./agent-mcp-design.md)
-
+내부 exception 원문이나 로컬 경로를 공개 응답에 추가하지 않습니다.

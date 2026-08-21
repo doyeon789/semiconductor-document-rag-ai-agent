@@ -2,282 +2,141 @@
 
 ## 1. 목표
 
-검색, 답변, 인용, 답변 보류, Agent 행동을 분리해서 측정한다. 최종 점수 하나로 문제를 숨기지 않고 어느 단계가 실패했는지 진단할 수 있어야 한다.
+검색, Evidence 선택, Citation, 답변 보류와 Agent 경로를 분리해 측정합니다. 평균 점수 하나로 실패 원인을 숨기지 않고 문서·언어·질문 유형별로 분석합니다.
 
-## 2. 평가 원칙
+## 2. 현재 기준값의 의미
 
-- 구현 전에 최소 평가 데이터셋을 만든다.
-- 동일 데이터셋으로 baseline과 개선안을 비교한다.
-- 모델, prompt, 검색 설정, index version, Git SHA를 기록한다.
-- LLM judge만 사용하지 않고 정답 페이지·규칙 기반 지표를 함께 사용한다.
-- 평균 점수뿐 아니라 질문 유형·문서 유형·언어별 결과를 공개한다.
-- 평가 질문과 개발 prompt가 서로 오염되지 않도록 분리한다.
+기존 자동 평가는 단일 로컬 PDF와 그 질문셋을 사용했습니다.
 
-## 3. Dataset 구성
-
-### 3.1 초기 규모
-
-| Split | 문서 | 질문 | 용도 |
-| --- | ---: | ---: | --- |
-| development | 5~10 | 40~60 | 빠른 튜닝과 오류 분석 |
-| validation | 5~10 | 40~60 | 설정 선택 |
-| holdout | 별도 문서 포함 | 30 이상 | 최종 포트폴리오 결과 |
-
-### 3.2 질문 유형 비율
-
-| 유형 | 목표 비율 |
+| 지표 | 기존 기준값 |
 | --- | ---: |
-| 단일 문서 fact lookup | 20% |
-| procedure/troubleshooting | 15% |
-| 다중 문서 비교 | 20% |
-| 표 기반 질문 | 15% |
-| 약어·한영 용어 질문 | 10% |
-| 수치·장비 코드 exact 질문 | 10% |
-| 답변 불가능 질문 | 10% |
+| Rerank Page Hit@5 | 1.000 |
+| Recall@5 | 0.917 |
+| MRR | 0.819 |
+| Required Fact Coverage | 0.917 |
+| Page Match Accuracy | 0.597 |
+| Abstention Recall | 1.000 |
+| Unsafe Answer Rate | 0.000 |
+| Trajectory Accuracy | 1.000 |
 
-한국어, 영어, 한영 혼합 질문을 모두 포함한다.
+이 값은 코드 회귀를 확인하는 참고값이며 새 AI 보안 코퍼스의 성능이 아닙니다. 코퍼스·질문 분포·문서 수가 달라지므로 새 평가셋에서 baseline을 다시 만듭니다.
 
-## 4. Dataset Schema
+## 3. AI 보안 평가셋
+
+### Split
+
+| Split | 최소 질문 | 용도 |
+| --- | ---: | --- |
+| development | 30 | Chunk·검색·threshold 튜닝 |
+| holdout | 15 | 선택한 설정의 최종 검증 |
+
+같은 질문의 표현만 바꾼 항목을 서로 다른 split에 넣지 않습니다. 가능하면 holdout은 튜닝에서 덜 사용한 문서·절을 포함합니다.
+
+### 질문 유형
+
+| 유형 | 예시 |
+| --- | --- |
+| 단일 문서 fact | 특정 위험이나 통제의 정의 |
+| 절차·목록 | 레드티밍 또는 위험관리 단계 |
+| 기관 간 비교 | KISA·NIST·OWASP 권고의 공통점과 차이 |
+| exact term | `LLM01`, `GOVERN`, `MEASURE` 등 정확한 식별자 |
+| 한영 교차 | 한국어 질문→영어 문서, 영어 질문→한국어 문서 |
+| 다중 페이지 | 원인과 대응이 다른 페이지에 있는 질문 |
+| 답변 불가능 | 여섯 문서에 근거가 없는 최신 사실·제품 질문 |
+
+### Case schema
 
 ```json
 {
-  "question_id": "q-001",
-  "question": "Vacuum Interlock의 원인과 조치 절차는?",
+  "question_id": "ai-sec-001",
+  "question": "생성형 AI의 프롬프트 인젝션 위험과 완화책은?",
   "language": "ko",
-  "intent": "procedure",
-  "audience": "engineer",
-  "document_ids": ["doc-1"],
+  "intent": "cross_document",
   "answerable": true,
-  "gold_pages": [42, 43],
-  "gold_chunks": [],
-  "reference_answer": "...",
-  "required_facts": [
-    "chamber pressure 확인",
-    "vacuum valve 상태 확인"
+  "gold": [
+    {
+      "document_id": "owasp-genai-llm-top-10-2026",
+      "pages": [20, 21]
+    }
   ],
-  "forbidden_claims": [],
-  "notes": "page 42 contains cause, page 43 contains procedure"
+  "required_facts": ["위험 설명", "권고 통제"],
+  "forbidden_claims": []
 }
 ```
 
-표 질문은 `gold_table_id`, 필요한 row/column 값을 추가한다. 다중 문서 비교는 문서별 `gold_pages`와 `required_facts`를 분리한다.
+정답 페이지는 PDF를 직접 확인해 기록하고, 근거가 여러 기관에 걸치면 문서별로 분리합니다.
 
-## 5. Retrieval Evaluation
+## 4. 검색 지표
 
-### 5.1 Metrics
+| 지표 | 의미 | 초기 Gate |
+| --- | --- | ---: |
+| Page Hit@5 | 정답 문서·페이지 하나 이상이 Top-5에 포함된 질문 비율 | ≥ 0.85 |
+| Recall@5 | 필요한 정답 페이지 중 Top-5에 포함된 비율 | ≥ 0.75 |
+| MRR | 첫 정답 문서·페이지의 역순위 평균 | ≥ 0.65 |
+| Cross-language Page Hit@5 | 한영 교차 질문의 Page Hit@5 | ≥ 0.75 |
+| Document Coverage | 비교 질문에서 필요한 문서가 모두 검색된 비율 | ≥ 0.80 |
 
-| Metric | 의미 |
-| --- | --- |
-| Recall@K | 정답 페이지/Chunk 중 Top-K에 포함된 비율 |
-| Page Hit@K | 정답 페이지 하나 이상이 Top-K에 존재하는 질문 비율 |
-| Precision@K | Top-K 결과 중 정답 비율 |
-| MRR | 첫 정답의 역순위 평균 |
-| nDCG@K | 다중 관련도와 순서를 고려한 점수 |
-| Table Hit@K | 정답 표가 Top-K에 존재하는 비율 |
+`document_id + page_number`를 정답 단위로 사용합니다. 페이지 번호만 같고 문서가 다른 결과는 정답이 아닙니다.
 
-Chunk 정답이 없는 초기 데이터에서는 page-level 지표를 우선 사용한다.
+## 5. 답변과 Citation 지표
 
-### 5.2 비교 Configuration
+| 지표 | 초기 Gate |
+| --- | ---: |
+| Required Fact Coverage | ≥ 0.80 |
+| Citation Precision | ≥ 0.95 |
+| Citation Coverage | ≥ 0.95 |
+| Page Match Accuracy | ≥ 0.90 |
+| Quote Match Rate | 1.00 |
+| Comparison Document Coverage | ≥ 0.85 |
 
-```text
-R1 Dense
-R2 BM25
-R3 Dense + BM25 + RRF
-R4 R3 + Domain Expansion
-R5 R4 + Cross-Encoder Reranking
-```
+추출형 답변에서 `Quote Match Rate`는 반드시 1.00이어야 합니다. 잘못된 페이지 Citation은 문체 문제보다 높은 우선순위로 수정합니다.
 
-각 run에서 latency, index size, query 비용도 기록한다.
+## 6. 답변 보류와 Agent 지표
 
-### 5.3 초기 목표
+- Abstention Precision
+- Abstention Recall
+- Unsafe Answer Rate
+- False Abstention Rate
+- Trajectory Accuracy
+- 평균 retrieval attempts와 step 수
+- Tool timeout·error 종료 정확성
 
-| Metric | MVP Gate | Target |
-| --- | ---: | ---: |
-| Page Hit@5 | ≥ 0.80 | ≥ 0.90 |
-| Recall@5 | ≥ 0.75 | ≥ 0.85 |
-| MRR | ≥ 0.60 | ≥ 0.75 |
-| Table Hit@5 | ≥ 0.70 | ≥ 0.85 |
+초기 Gate:
 
-초기 목표는 데이터셋 구축 후 난이도와 annotation 품질을 검토해 ADR 또는 평가 기록으로 조정한다.
+- Abstention Recall ≥ 0.90
+- Unsafe Answer Rate = 0.00
+- 최대 step 위반 = 0
 
-## 6. Answer Evaluation
+## 7. 실험 규칙
 
-| Metric | 방법 |
-| --- | --- |
-| Required Fact Coverage | required facts 중 답변에 포함된 비율 |
-| Faithfulness | Claim이 인용 Evidence로 지지되는 비율 |
-| Answer Relevancy | 질문에 직접 답한 정도 |
-| Contradiction Rate | Evidence와 충돌하는 Claim 비율 |
-| Numeric Accuracy | 수치와 단위가 원문과 일치하는 비율 |
-| Comparison Completeness | 비교 대상·항목별 근거가 모두 있는 비율 |
+1. 코퍼스 해시와 평가셋 버전을 고정합니다.
+2. BM25, Dense, Hybrid, Rerank baseline을 모두 실행합니다.
+3. 한 실험에서는 Chunk, 모델, 후보 수, threshold 중 하나만 바꿉니다.
+4. development 결과로 설정을 선택합니다.
+5. holdout은 최종 선택 때만 실행합니다.
+6. 점수, warm latency, 모델명, 설정과 Git SHA를 함께 저장합니다.
 
-평가는 규칙 기반 extractor, 사람이 작성한 reference, 제한된 LLM judge를 조합한다. LLM judge prompt와 모델 version을 고정한다.
+## 8. 실행
 
-## 7. Citation Evaluation
-
-### 7.1 Metrics
-
-```text
-Citation Precision = supported citations / all citations
-Citation Coverage = claims with valid citation / citation-required claims
-Page Match Accuracy = citations pointing to gold page / evaluated citations
-Quote Match Rate = quote found on cited page / all quotes
-```
-
-### 7.2 초기 목표
-
-| Metric | MVP Gate | Target |
-| --- | ---: | ---: |
-| Citation Precision | ≥ 0.90 | ≥ 0.97 |
-| Citation Coverage | ≥ 0.90 | ≥ 0.95 |
-| Page Match Accuracy | ≥ 0.90 | ≥ 0.97 |
-| Quote Match Rate | ≥ 0.95 | ≥ 0.99 |
-
-페이지 번호 오류는 답변 문체 오류보다 높은 우선순위로 수정한다.
-
-## 8. Abstention Evaluation
-
-답변 가능/불가능 질문을 함께 평가한다.
-
-| Metric | 의미 |
-| --- | --- |
-| Abstention Precision | 보류한 질문 중 실제 답변 불가능 비율 |
-| Abstention Recall | 답변 불가능 질문 중 보류한 비율 |
-| Unsafe Answer Rate | 답변 불가능 질문에 근거 없는 답변을 한 비율 |
-| False Abstention Rate | 답변 가능한 질문을 불필요하게 보류한 비율 |
-
-초기 gate:
-
-- Abstention Precision ≥ 0.80
-- Abstention Recall ≥ 0.85
-- Unsafe Answer Rate ≤ 0.05
-
-## 9. Agent Evaluation
-
-### 9.1 Metrics
-
-- Intent Classification Accuracy
-- Tool Selection Accuracy
-- Retrieval Retry Success Rate
-- Average Tool Calls
-- Unnecessary Tool Call Rate
-- Termination Accuracy
-- Max-step Violation Count
-- Tool Error Recovery Rate
-
-### 9.2 Trajectory Cases
-
-| Case | 기대 경로 |
-| --- | --- |
-| 충분한 단일 검색 | classify → retrieve → gather → generate → validate |
-| 검색어 재작성 필요 | classify → retrieve → rewrite → retrieve → generate |
-| 표 검색 | classify → search_table → get_table → generate |
-| 근거 없음 | retrieve → rewrite → retrieve → abstain |
-| MCP 오류 | tool error → retry/fallback → answer 또는 abstain |
-| Citation 오류 | generate → validate → repair → validate |
-
-## 10. Performance & Cost
-
-| Metric | 목표 |
-| --- | --- |
-| Search p95 warm latency | ≤ 2초 |
-| Answer p95 latency | ≤ 15초 |
-| Agent timeout | ≤ 45초 |
-| 평균 retrieval attempts | ≤ 1.5 |
-| 평균 tool calls | 질문 유형별 baseline 대비 관리 |
-| LLM token/cost | run별 기록, 예산 초과 시 실패 |
-
-## 11. 실행 절차
-
-```text
-1. dataset schema 검증
-2. 문서/index version 고정
-3. configuration snapshot 저장
-4. retrieval suite 실행
-5. answer/citation suite 실행
-6. abstention suite 실행
-7. agent trajectory suite 실행
-8. aggregate + slice metrics 생성
-9. 실패 사례 artifact 저장
-10. 이전 baseline과 diff 생성
-```
-
-## 12. Report Structure
-
-```text
-reports/{evaluation_run_id}/
-├── manifest.json
-├── aggregate_metrics.json
-├── slice_metrics.json
-├── retrieval_results.jsonl
-├── retrieval_failures.jsonl
-├── answer_results.jsonl
-├── agent_trajectories.jsonl
-├── retrieval_error_analysis.md
-├── failures.md
-└── summary.md
-```
-
-`manifest.json` 필수 필드:
-
-```json
-{
-  "git_sha": "...",
-  "dataset_version": "eval-v1",
-  "parser_version": "...",
-  "chunker_version": "...",
-  "embedding_version": "...",
-  "reranker_version": "...",
-  "llm_model": "...",
-  "prompt_version": "...",
-  "configuration": {}
-}
-```
-
-## 13. 자동 평가 실행
-
-Day 7 전체 평가는 다음 한 명령으로 실행한다.
+현재 회귀 평가:
 
 ```powershell
+.\.venv\Scripts\python.exe scripts\evaluate_retrieval.py
 .\.venv\Scripts\python.exe scripts\evaluate_rag.py
 ```
 
-기본 입력은 `data/evaluation/rag_cases.json`의 14개 케이스와 로컬 PDF v1.3이다. 실행 결과는 Git에서 제외되는 `output/evaluation/{run_id}/`에 저장되며 기존 report artifact 외에 개인정보를 담지 않는 `events.jsonl`도 생성한다.
+현재 기본 입력은 기존 단일 문서 평가셋입니다. AI 보안 평가셋과 다중 문서 loader가 연결되기 전까지 결과를 새 코퍼스 성능으로 게시하지 않습니다.
 
-2026-08-13 기준 실행 `20260813T084208Z-df07180`의 주요 결과는 다음과 같다.
+평가 산출물은 Git에서 제외된 `output/evaluation/{run_id}/`에 저장합니다.
 
-| 항목 | 결과 |
-| --- | ---: |
-| Rerank Page Hit@5 | 1.000 |
-| Rerank Recall@5 | 0.917 |
-| Rerank MRR | 0.819 |
-| Citation Precision | 1.000 |
-| Page Match Accuracy | 0.417 |
-| Abstention Recall | 0.500 |
-| Unsafe Answer Rate | 0.500 |
-| Trajectory Accuracy | 0.929 |
+## 9. 실패 분석 순서
 
-검색 재순위화는 retrieval gate를 통과했지만, 정답 페이지 외의 근거를 답변에 포함하는 문제와 답변 불가 질문에 답한 문제가 확인되어 전체 MVP Gate는 실패했다. 이 결과는 Day 9 retrieval error analysis와 Day 11 citation·abstention hardening의 기준값으로 사용한다.
+1. `missed`, `low_rank`, `wrong_page`, `rerank_regression` 분류
+2. `cross_language`, `document_imbalance` 추가 분류
+3. 정답 페이지 text 추출 상태 확인
+4. Chunk 경계와 반복 header/footer 확인
+5. BM25·Dense 개별 순위 비교
+6. Reranker 전후 순위 비교
+7. Evidence 선택과 Citation 포함 이유 확인
 
-Day 9에는 검색 결과, Citation 페이지와 검색 모드별 순위를 결합해 `missed`, `low_rank`, `wrong_page`, `rerank_regression`을 자동 분류하도록 했다. Evidence 선택을 질문 개념 기준으로 개선한 로컬 검증에서 Required Fact Coverage `0.917`, Page Match Accuracy `0.597`, Case Pass Rate `0.357`을 기록했다. Retrieval 지표는 기준값을 유지했으며, 답변 불가능 질문에 대한 보류 개선은 Day 11에서 다룬다.
-
-Day 11에는 Evidence Pack에 검색 방식을 보존하고 현재 Reranker의 관련도 점수 `-1.0`을 근거 충분성 기준으로 적용했다. Native RAG와 Agentic RAG 모두 약한 최종 근거를 답변 대신 보류한다. 개발 평가에서 Abstention Recall `1.000`, Unsafe Answer Rate `0.000`, Trajectory Accuracy `1.000`을 기록했고 답변 가능한 질문의 False Abstention은 발생하지 않았다. 별도 holdout이 아직 없으므로 threshold의 최종 확정은 Day 14 평가에서 수행한다.
-
-## 14. Release Gate
-
-`v0.1.0` 릴리스 전 다음 조건을 모두 만족한다.
-
-- Retrieval MVP gate 통과
-- Citation MVP gate 통과
-- Unsafe Answer Rate 5% 이하
-- 필수 trajectory case 통과
-- 평가 run 재실행 가능
-- 이전 baseline 대비 주요 지표 회귀 없음
-- 알려진 실패와 제외 범위를 README 또는 release note에 공개
-
-## 15. 관련 문서
-
-- [Requirements](./requirements.md)
-- [Retrieval Design](./retrieval-design.md)
-- [Testing Strategy](./testing-strategy.md)
-
+인프라나 모델 교체보다 먼저 실패한 실제 페이지와 질문을 확인합니다.

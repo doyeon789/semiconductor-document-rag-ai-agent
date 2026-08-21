@@ -212,7 +212,7 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
-# Project document data and generated artifacts
+# Project document data, downloaded public corpora, and generated artifacts
 *.key
 *.pem
 *.pdf

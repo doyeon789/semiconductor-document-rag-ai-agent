@@ -1,67 +1,49 @@
-# ADR-0005: LangGraph Orchestration
+# ADR-0005: Bounded LangGraph Orchestration
 
 - Status: Accepted
 - Date: 2026-08-07
-- Decision owners: Project maintainer
+- Updated: 2026-08-19
 
 ## Context
 
-질문에 따라 단일 검색, 문서별 검색, 표 조회, 재검색, Citation repair, 답변 보류 경로가 달라진다. 자유로운 ReAct loop만 사용하면 무한 도구 호출과 종료 이유를 통제하기 어렵고 평가 trajectory를 재현하기 어렵다.
+첫 검색이 약할 때 검색어를 바꾸고 다시 검색해야 하지만, 자유로운 Agent loop는 무한 재검색과 종료 이유 불명확 문제를 만들 수 있습니다.
 
 ## Decision
 
-- LangGraph로 Agent의 상태와 조건부 전이를 구현한다.
-- 질문 분류, 검색 계획, 검색, 재작성, 원문 수집, 답변 생성, Citation 검증, repair, abstention을 명시적 node로 나눈다.
-- `max_steps`, `max_retrieval_attempts`, `max_tool_errors`, timeout을 설정한다.
-- 검색 알고리즘과 Citation 검증은 Agent node가 아니라 application tool에 둔다.
-- MVP에서는 [ADR-0006](./0006-in-process-agent-tools.md)에 따라 in-process typed tool을 사용한다.
-- 최종 종료 이유를 enum으로 반환한다.
+- LangGraph로 입력 안전 분류, 검색, 충분성 판단, query rewrite, 답변 검증과 종료를 명시합니다.
+- 첫 검색은 BM25, 필요한 한 번의 개선 검색은 Rerank를 기본 경로로 사용합니다.
+- `max_steps`, `max_retrieval_attempts`, `max_repair_attempts`와 tool timeout을 요청 schema로 제한합니다.
+- 검색·Evidence·답변 로직은 graph node에 복사하지 않고 typed in-process tool로 호출합니다.
+- 모든 실행은 검색어, 검색 모드, step과 종료 이유를 trace로 반환합니다.
 
 ## Consequences
 
 ### Positive
 
-- 재검색·오류 복구·답변 보류 경로가 코드와 diagram에 명시된다.
-- node와 edge 단위 테스트가 가능하다.
-- tool 선택과 retry trajectory를 평가할 수 있다.
-- 무한 loop와 과도한 tool call을 제한할 수 있다.
+- 재검색과 답변 보류 경로를 자동 테스트할 수 있습니다.
+- 최대 실행량과 timeout을 강제할 수 있습니다.
+- Native RAG와 Agentic RAG의 결과·비용을 비교할 수 있습니다.
 
 ### Negative
 
-- 단순 RAG chain보다 상태와 routing 코드가 많다.
-- state schema 변경에 migration 성격의 관리가 필요하다.
-- LangGraph API version과 runtime 특성을 추적해야 한다.
+- 고정 RAG chain보다 상태와 테스트 코드가 많습니다.
+- 현재 도구가 검색과 답변으로 제한돼 복잡한 계획 능력은 없습니다.
+- Agent가 실제 품질을 개선하지 못하면 유지 비용만 남을 수 있습니다.
 
-## Alternatives Considered
+## Alternatives
 
-### 단일 prompt + retrieval chain
-
-단일 질문에는 충분하지만 다중 도구·재검색·검증 요구사항을 명시적으로 관리하기 어렵다.
-
-### 자유 ReAct loop
-
-유연하지만 종료 조건, 재현성, 비용 상한, trajectory 평가가 약하다.
-
-### 자체 state machine
-
-의존성은 줄지만 checkpoint, tracing, graph 구성을 직접 구현해야 한다.
-
-## Validation
-
-- 모든 routing edge unit test
-- max step/timeout/retry test
-- trajectory dataset 기반 Tool Selection Accuracy
-- 불필요한 tool call과 termination accuracy 측정
+- 단일 고정 chain: baseline으로 유지하지만 재검색 경로를 표현하기 어렵습니다.
+- 자유 ReAct loop: 실행 상한과 재현성이 약해 제외했습니다.
+- 자체 state machine: 현재 LangGraph보다 명확한 이점이 없어 선택하지 않았습니다.
 
 ## Revisit Conditions
 
-- Agent 경로가 실제로 단일 고정 chain으로 수렴하는 경우
-- LangGraph 의존성이 배포 제약을 크게 증가시키는 경우
-- 더 단순한 state machine이 같은 평가·관측성 요구를 충족하는 경우
+- 새 평가셋에서 Agentic RAG가 Native RAG보다 개선되지 않는 경우
+- 모든 질문이 한 번의 Rerank 검색으로 충분한 경우
+- LangGraph 의존성이 배포나 유지보수를 불필요하게 어렵게 하는 경우
 
-## Related Documents
+## Validation
 
-- [Agent & Tool Design](../agent-mcp-design.md)
-- [Evaluation Plan](../evaluation-plan.md)
-- [ADR-0006: In-Process Agent Tools](./0006-in-process-agent-tools.md)
-
+- 첫 검색 성공·재검색 성공·검색 한도 도달 경로
+- prompt injection, step limit, timeout과 tool error 경로
+- Trajectory Accuracy와 평균 retrieval attempts
