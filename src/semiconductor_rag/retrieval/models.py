@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from semiconductor_rag.domain import Chunk
+from semiconductor_rag.domain import Chunk, DocumentSource
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,7 +15,10 @@ class SearchHit:
         Page-traceable source chunk.
     score : float
         Method-specific relevance score. Larger values are more relevant.
+    source : DocumentSource or None, default=None
+        Public document metadata attached by the search service.
     """
 
     chunk: Chunk
     score: float
+    source: DocumentSource | None = None

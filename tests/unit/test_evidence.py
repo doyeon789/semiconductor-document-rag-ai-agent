@@ -6,13 +6,19 @@ from uuid import UUID
 import pytest
 
 from semiconductor_rag.answering import build_evidence_pack
-from semiconductor_rag.domain import Chunk, ChunkType
+from semiconductor_rag.domain import Chunk, ChunkType, DocumentSource
 from semiconductor_rag.retrieval import SearchHit, SearchMode
 
 VERSION_ID = UUID("66666666-6666-4666-8666-666666666666")
 
 
-def _make_hit(number: int, page: int, text: str, score: float) -> SearchHit:
+def _make_hit(
+    number: int,
+    page: int,
+    text: str,
+    score: float,
+    source: DocumentSource | None = None,
+) -> SearchHit:
     """Create a stable page-local search hit.
 
     Parameters
@@ -25,6 +31,8 @@ def _make_hit(number: int, page: int, text: str, score: float) -> SearchHit:
         Evidence text.
     score : float
         Retrieval or reranker score.
+    source : DocumentSource or None, default=None
+        Optional public document metadata.
 
     Returns
     -------
@@ -43,6 +51,7 @@ def _make_hit(number: int, page: int, text: str, score: float) -> SearchHit:
             content_hash=sha256(text.encode()).hexdigest(),
         ),
         score=score,
+        source=source,
     )
 
 
@@ -105,3 +114,25 @@ def test_evidence_pack_records_the_search_score_family() -> None:
     )
 
     assert pack.retrieval_mode is SearchMode.RERANK
+
+
+def test_evidence_pack_prefers_hit_document_metadata() -> None:
+    """Use per-hit metadata instead of one legacy fallback document."""
+    source = DocumentSource(
+        document_id="nist-ai-rmf-1-0",
+        title="NIST AI RMF 1.0",
+        publisher="NIST",
+        language="en-US",
+        version="1.0",
+    )
+    hit = _make_hit(1, 12, "AI risk management framework", 0.9, source)
+
+    pack = build_evidence_pack(
+        "risk management",
+        (hit,),
+        document_id="legacy-document",
+        document_title="Legacy Document",
+    )
+
+    assert pack.blocks[0].document_id == "nist-ai-rmf-1-0"
+    assert pack.blocks[0].document_title == "NIST AI RMF 1.0"
