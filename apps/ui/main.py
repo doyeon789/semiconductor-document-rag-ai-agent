@@ -1,4 +1,4 @@
-"""Render the local Semiconductor RAG Streamlit demo."""
+"""Render the local AI security document RAG Streamlit demo."""
 
 from __future__ import annotations
 
@@ -12,22 +12,22 @@ from apps.ui.presentation import DemoResult, build_demo_result
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
 EXAMPLE_QUESTIONS = (
-    "산화 공정에서 형성되는 막은 무엇인가?",
-    "습식 산화와 건식 산화의 차이는 무엇인가?",
-    "포토 공정의 주요 단계를 설명해줘.",
+    "AI 보안 위협 대응 절차는 무엇인가?",
+    "AI 레드티밍 수행 시 고려할 항목은 무엇인가?",
+    "NIST AI RMF에서 GOVERN은 어떤 역할을 하는가?",
 )
 
 
 def main() -> None:
     """Render inputs, run one API request, and show grounded evidence."""
     st.set_page_config(
-        page_title="Semiconductor RAG Demo",
-        page_icon="🔬",
+        page_title="AI Security RAG Demo",
+        page_icon="🛡️",
         layout="wide",
     )
     _render_theme()
-    st.markdown("# Semiconductor Document RAG")
-    st.caption("반도체 공정 PDF에서 페이지 근거를 찾아 답변하는 Agentic RAG 데모")
+    st.markdown("# AI Security Document RAG")
+    st.caption("공개 AI 보안 PDF에서 페이지 근거를 찾아 답변하는 Agentic RAG 데모")
 
     api_url, agentic, top_k, max_claims, show_trace = _render_sidebar()
     _render_examples()
@@ -35,7 +35,7 @@ def main() -> None:
         "질문",
         key="question",
         height=110,
-        placeholder="반도체 공정 문서에 대해 질문해 주세요.",
+        placeholder="KISA·NIST·OWASP AI 보안 문서에 대해 질문해 주세요.",
     )
     submitted = st.button("문서에서 답변 찾기", type="primary", width="stretch")
     if submitted:

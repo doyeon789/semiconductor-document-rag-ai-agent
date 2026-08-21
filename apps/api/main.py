@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from time import perf_counter
 from typing import Annotated, Literal
-from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
+from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
@@ -27,10 +27,11 @@ from semiconductor_rag.answering import (
     build_evidence_pack,
     build_grounded_answer,
 )
-from semiconductor_rag.ingestion import (
-    PdfExtractionError,
-    build_page_chunks,
-    extract_pdf,
+from semiconductor_rag.corpus import (
+    DEFAULT_CATALOG_PATH,
+    CorpusLoadError,
+    LoadedCorpus,
+    load_corpus,
 )
 from semiconductor_rag.retrieval import (
     DEFAULT_RERANKER_MODEL,
@@ -40,17 +41,8 @@ from semiconductor_rag.retrieval import (
     SearchMode,
 )
 
-DEFAULT_DOCUMENT_ID = "SEMI-8P-RAG-KO"
-DEFAULT_DOCUMENT_VERSION = "1.3"
-DEFAULT_DOCUMENT_TITLE = "반도체 8대 제조 공정: 웨이퍼에서 패키징까지"
-DEFAULT_EXCLUDED_CORPUS_PAGES = frozenset({65})
-DEFAULT_PDF_PATH = Path(
-    "output/pdf/semiconductor_8_processes_chunking_guide_ko_v1_3.pdf"
-)
-DEFAULT_VERSION_ID = uuid5(
-    NAMESPACE_URL,
-    f"{DEFAULT_DOCUMENT_ID}:{DEFAULT_DOCUMENT_VERSION}",
-)
+FALLBACK_DOCUMENT_ID = "local-document"
+FALLBACK_DOCUMENT_TITLE = "Configured local document"
 
 
 class LiveHealthResponse(BaseModel):
@@ -77,6 +69,11 @@ class SearchResultResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     rank: int = Field(ge=1)
+    document_id: str = Field(min_length=1)
+    document_title: str = Field(min_length=1)
+    publisher: str = Field(min_length=1)
+    language: str = Field(min_length=1)
+    document_version: str = Field(min_length=1)
     chunk_id: UUID
     version_id: UUID
     page_start: int = Field(ge=1)
@@ -91,7 +88,6 @@ class SearchResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query_id: UUID
-    document_id: str
     mode: SearchMode
     embedding_model: str | None
     reranker_model: str | None
@@ -155,7 +151,7 @@ async def get_live_health() -> LiveHealthResponse:
 
 
 async def get_document_pdf(document_id: str) -> FileResponse:
-    """Return the configured source PDF for page-level Citation links.
+    """Return one verified corpus PDF for page-level Citation links.
 
     Parameters
     ----------
@@ -170,60 +166,74 @@ async def get_document_pdf(document_id: str) -> FileResponse:
     Raises
     ------
     fastapi.HTTPException
-        If the identifier is unknown or the configured PDF does not exist.
+        If the identifier is unknown or the verified PDF no longer exists.
     """
-    if document_id != DEFAULT_DOCUMENT_ID:
+    document = get_corpus().get_document(document_id)
+    if document is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-    pdf_path = Path(os.getenv("DOCUMENT_PDF_PATH", str(DEFAULT_PDF_PATH)))
-    if not pdf_path.is_file():
+    if not document.pdf_path.is_file():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document PDF is unavailable",
         )
     return FileResponse(
-        pdf_path,
+        document.pdf_path,
         media_type="application/pdf",
-        filename=pdf_path.name,
+        filename=document.pdf_path.name,
         content_disposition_type="inline",
     )
 
 
 @lru_cache(maxsize=1)
-def get_search_service() -> LocalSearchService:
-    """Build and cache the local PDF search service.
+def get_corpus() -> LoadedCorpus:
+    """Verify and cache the configured public document corpus.
 
     Returns
     -------
-    LocalSearchService
-        Sparse index and lazy dense index over the configured PDF.
+    LoadedCorpus
+        Catalog documents, local PDF paths, and page-aware chunks.
 
     Raises
     ------
     fastapi.HTTPException
-        If the configured local PDF cannot be extracted.
+        If any required catalog PDF cannot be verified or extracted.
     """
-    pdf_path = Path(os.getenv("DOCUMENT_PDF_PATH", str(DEFAULT_PDF_PATH)))
+    catalog_path = Path(os.getenv("CORPUS_CATALOG_PATH", str(DEFAULT_CATALOG_PATH)))
+    pdf_dir_value = os.getenv("CORPUS_PDF_DIR")
+    pdf_dir = Path(pdf_dir_value) if pdf_dir_value else None
     try:
-        pages = extract_pdf(pdf_path, DEFAULT_VERSION_ID)
-    except PdfExtractionError as exc:
+        return load_corpus(catalog_path=catalog_path, pdf_dir=pdf_dir)
+    except (CorpusLoadError, OSError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Local search PDF is unavailable: {pdf_path}",
+            detail="AI security corpus is unavailable or invalid",
         ) from exc
-    searchable_pages = tuple(
-        page
-        for page in pages
-        if page.page.page_number not in DEFAULT_EXCLUDED_CORPUS_PAGES
-    )
-    chunks = build_page_chunks(searchable_pages, DEFAULT_VERSION_ID)
+
+
+@lru_cache(maxsize=1)
+def get_search_service() -> LocalSearchService:
+    """Build and cache the multi-document local search service.
+
+    Returns
+    -------
+    LocalSearchService
+        Sparse index and lazy dense index over the verified corpus.
+
+    Raises
+    ------
+    fastapi.HTTPException
+        If the configured local corpus cannot be loaded.
+    """
+    corpus = get_corpus()
     reranker_model = os.getenv("RERANKER_MODEL", DEFAULT_RERANKER_MODEL)
     return LocalSearchService(
-        chunks,
+        corpus.chunks,
         FastEmbedder(),
         FastEmbedReranker(model_name=reranker_model),
+        sources_by_version=corpus.sources_by_version,
     )
 
 
@@ -244,8 +254,8 @@ def get_retrieval_agent(
     """
     tools = LocalRetrievalAgentTools(
         search_service,
-        document_id=DEFAULT_DOCUMENT_ID,
-        document_title=DEFAULT_DOCUMENT_TITLE,
+        document_id=FALLBACK_DOCUMENT_ID,
+        document_title=FALLBACK_DOCUMENT_TITLE,
     )
     return RetrievalAgent(tools)
 
@@ -276,19 +286,21 @@ async def search_documents(
     )
     if request.mode is SearchMode.RERANK:
         embedding_model = None
-    return SearchResponse(
-        query_id=uuid4(),
-        document_id=DEFAULT_DOCUMENT_ID,
-        mode=request.mode,
-        embedding_model=embedding_model,
-        reranker_model=(
-            search_service.reranker_model_name
-            if request.mode is SearchMode.RERANK
-            else None
-        ),
-        results=[
+    results: list[SearchResultResponse] = []
+    for rank, hit in enumerate(hits, start=1):
+        if hit.source is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Search result is missing document metadata",
+            )
+        results.append(
             SearchResultResponse(
                 rank=rank,
+                document_id=hit.source.document_id,
+                document_title=hit.source.title,
+                publisher=hit.source.publisher,
+                language=hit.source.language,
+                document_version=hit.source.version,
                 chunk_id=hit.chunk.chunk_id,
                 version_id=hit.chunk.version_id,
                 page_start=hit.chunk.page_start,
@@ -296,8 +308,17 @@ async def search_documents(
                 text=hit.chunk.text,
                 score=hit.score,
             )
-            for rank, hit in enumerate(hits, start=1)
-        ],
+        )
+    return SearchResponse(
+        query_id=uuid4(),
+        mode=request.mode,
+        embedding_model=embedding_model,
+        reranker_model=(
+            search_service.reranker_model_name
+            if request.mode is SearchMode.RERANK
+            else None
+        ),
+        results=results,
         latency_ms=latency_ms,
     )
 
@@ -325,8 +346,8 @@ async def answer_question(
     evidence_pack = build_evidence_pack(
         request.question,
         hits,
-        document_id=DEFAULT_DOCUMENT_ID,
-        document_title=DEFAULT_DOCUMENT_TITLE,
+        document_id=FALLBACK_DOCUMENT_ID,
+        document_title=FALLBACK_DOCUMENT_TITLE,
         max_evidence=request.top_k,
         retrieval_mode=SearchMode.RERANK,
     )
@@ -389,7 +410,7 @@ def create_app() -> FastAPI:
         Configured HTTP application.
     """
     application = FastAPI(
-        title="Semiconductor Document RAG API",
+        title="AI Security Document RAG API",
         version="0.1.0",
     )
     application.add_api_route(
