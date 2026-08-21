@@ -2,7 +2,7 @@
 
 ## 1. 현재 범위
 
-FastAPI는 로컬에서 설정한 PDF 한 개를 메모리에 인덱싱합니다. 문서 업로드, 목록, 비동기 ingestion job과 평가 API는 아직 없습니다. `/docs`의 OpenAPI 화면을 현재 계약의 최종 기준으로 사용합니다.
+FastAPI는 매니페스트에 고정된 AI 보안 PDF 6개를 검증하고 하나의 메모리 인덱스에서 검색합니다. 문서 업로드, 목록, 비동기 ingestion job과 평가 API는 아직 없습니다. `/docs`의 OpenAPI 화면을 현재 계약의 최종 기준으로 사용합니다.
 
 ## 2. Endpoints
 
@@ -38,6 +38,11 @@ FastAPI는 로컬에서 설정한 PDF 한 개를 메모리에 인덱싱합니다
   "results": [
     {
       "rank": 1,
+      "document_id": "kisa-ai-red-teaming-guide-2026",
+      "document_title": "AI 보안 레드티밍 가이드",
+      "publisher": "KISA",
+      "language": "ko-KR",
+      "document_version": "2026",
       "chunk_id": "uuid",
       "version_id": "uuid",
       "page_start": 12,
@@ -76,8 +81,8 @@ FastAPI는 로컬에서 설정한 PDF 한 개를 메모리에 인덱싱합니다
   "claims": [],
   "citations": [
     {
-      "document_id": "configured-document-id",
-      "document_title": "configured title",
+      "document_id": "kisa-ai-red-teaming-guide-2026",
+      "document_title": "AI 보안 레드티밍 가이드",
       "page_number": 12,
       "quote": "검증된 원문 문장"
     }
@@ -134,9 +139,7 @@ FastAPI는 로컬에서 설정한 PDF 한 개를 메모리에 인덱싱합니다
 
 ### `GET /v1/documents/{document_id}/pdf`
 
-설정된 단일 `document_id`만 허용하며 PDF를 브라우저 inline 응답으로 반환합니다. UI는 `#page=N` fragment를 붙여 Citation 페이지를 엽니다.
-
-다중 문서 전환 후에는 source ID별 실제 PDF 경로를 조회하도록 교체합니다.
+매니페스트의 source ID를 `document_id`로 사용해 해당 로컬 PDF를 브라우저 inline 응답으로 반환합니다. UI는 `#page=N` fragment를 붙여 Citation 페이지를 엽니다. 알 수 없는 ID로 임의 파일 경로를 조회할 수 없습니다.
 
 ## 7. 오류
 

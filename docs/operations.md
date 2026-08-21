@@ -19,7 +19,8 @@
 | --- | :---: | --- |
 | `APP_ENV` | 아니요 | 현재 실행 환경 표시 |
 | `LOG_LEVEL` | 아니요 | 로그 수준 |
-| `DOCUMENT_PDF_PATH` | 데모 시 | 현재 단일 문서 PDF 경로 |
+| `CORPUS_CATALOG_PATH` | 아니요 | 기본 `data/corpus/sources.yaml`을 대체할 catalog |
+| `CORPUS_PDF_DIR` | 아니요 | catalog의 기본 로컬 PDF 디렉터리 대체 |
 | `RERANKER_MODEL` | 아니요 | FastEmbed Cross-Encoder 모델명 |
 | `RAG_API_BASE_URL` | 아니요 | Streamlit이 호출할 FastAPI 주소 |
 
@@ -40,7 +41,7 @@ uv sync --frozen
 .\.venv\Scripts\python.exe -m streamlit run apps\ui\main.py
 ```
 
-다중 문서 연결 전에는 `DOCUMENT_PDF_PATH`가 가리키는 한 파일만 인덱싱합니다. 새 코퍼스 전체 데모로 오해하지 않도록 합니다.
+API는 시작 후 첫 검색 서비스 요청에서 6개 PDF의 해시·페이지 수를 확인하고 757개 검색 대상 페이지를 Chunk로 만듭니다.
 
 ## 5. Health와 준비 상태
 
@@ -67,7 +68,7 @@ Dense와 Reranker는 지연 로드하므로 첫 요청은 모델 다운로드·�
 
 ### PDF를 찾지 못함
 
-- `DOCUMENT_PDF_PATH`가 현재 PowerShell 작업 디렉터리 기준으로 유효한지 확인합니다.
+- `CORPUS_CATALOG_PATH`와 `CORPUS_PDF_DIR`이 현재 PowerShell 작업 디렉터리 기준으로 유효한지 확인합니다.
 - 코퍼스 문서는 `data/raw/ai-security/`에 있습니다.
 - PDF는 Git clone만으로 제공되지 않으므로 다운로드 명령을 먼저 실행합니다.
 
