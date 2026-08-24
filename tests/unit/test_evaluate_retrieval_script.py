@@ -9,10 +9,16 @@ from uuid import UUID
 import pytest
 
 from scripts.evaluate_retrieval import (
+    _require_answerable_cases,
     _summarize_corpus,
     validate_dataset_against_corpus,
 )
-from semiconductor_rag.corpus import CorpusDocument, LoadedCorpus
+from semiconductor_rag.corpus import (
+    DEFAULT_CATALOG_PATH,
+    CorpusDocument,
+    LoadedCorpus,
+    load_catalog,
+)
 from semiconductor_rag.domain import Chunk, ChunkType, DocumentSource
 from semiconductor_rag.evaluation import RetrievalDataset, load_retrieval_dataset
 
@@ -147,6 +153,48 @@ def test_committed_ai_security_datasets_keep_frozen_splits() -> None:
     assert {case.query.casefold() for case in development.cases}.isdisjoint(
         case.query.casefold() for case in holdout.cases
     )
+    development_gold = {
+        (evidence.document_id, page)
+        for case in development.cases
+        for evidence in case.gold
+        for page in evidence.pages
+    }
+    holdout_gold = {
+        (evidence.document_id, page)
+        for case in holdout.cases
+        for evidence in case.gold
+        for page in evidence.pages
+    }
+    assert development_gold.isdisjoint(holdout_gold)
+
+    catalog_document_ids = {
+        source.id for source in load_catalog(DEFAULT_CATALOG_PATH).sources
+    }
+    assert set(development.document_ids) == catalog_document_ids
+    assert set(holdout.document_ids) == catalog_document_ids
+
+
+def test_require_answerable_cases_rejects_abstention_cases() -> None:
+    """Do not silently remove abstention cases from the metric denominator."""
+    dataset = RetrievalDataset.model_validate(
+        {
+            "schema_version": 2,
+            "dataset_id": "test-development-v1",
+            "corpus_id": "test-corpus",
+            "split": "development",
+            "document_ids": ["guide"],
+            "cases": [
+                {
+                    "id": "Q-UNKNOWN",
+                    "query": "What is not in the corpus?",
+                    "answerable": False,
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(ValueError, match="only answerable cases"):
+        _require_answerable_cases(dataset)
 
 
 def test_validate_dataset_against_corpus_accepts_searchable_gold() -> None:
@@ -198,4 +246,15 @@ def test_validate_dataset_against_corpus_rejects_wrong_corpus() -> None:
     corpus = LoadedCorpus(corpus_id="other-corpus", documents=(_document(),))
 
     with pytest.raises(ValueError, match="does not match other-corpus"):
+        validate_dataset_against_corpus(_dataset(), corpus)
+
+
+def test_validate_dataset_against_corpus_rejects_omitted_documents() -> None:
+    """Keep the declared evaluation documents equal to the indexed corpus."""
+    corpus = LoadedCorpus(
+        corpus_id="test-corpus",
+        documents=(_document(), _document(document_id="extra-guide")),
+    )
+
+    with pytest.raises(ValueError, match="omits corpus documents: extra-guide"):
         validate_dataset_against_corpus(_dataset(), corpus)

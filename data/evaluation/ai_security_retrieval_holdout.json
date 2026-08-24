@@ -166,13 +166,13 @@
     },
     {
       "id": "AISEC-HOLD-013",
-      "query": "생성형 AI의 학습 데이터 암기와 저작물 재현이 어떤 지식재산 위험을 만드는가?",
+      "query": "생성형 AI에서 자동화 편향과 인간의 감정적 얽힘은 어떤 위험을 만드는가?",
       "language": "ko",
       "intent": "cross_language",
       "gold": [
         {
           "document_id": "nist-generative-ai-profile-2024",
-          "pages": [15]
+          "pages": [13]
         }
       ]
     },

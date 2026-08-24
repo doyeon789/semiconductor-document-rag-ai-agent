@@ -13,6 +13,7 @@ from semiconductor_rag.corpus import (
     load_corpus,
 )
 from semiconductor_rag.evaluation import (
+    RetrievalCase,
     RetrievalDataset,
     evaluate_retrieval,
     load_retrieval_dataset,
@@ -62,6 +63,7 @@ def main() -> None:
     if args.top_k < 1:
         raise ValueError("top_k must be positive")
     dataset = load_retrieval_dataset(args.dataset)
+    retrieval_cases = _require_answerable_cases(dataset)
     modes = tuple(SearchMode(mode) for mode in args.modes)
     if dataset.corpus_id is not None:
         corpus = load_corpus(args.catalog, args.pdf_dir)
@@ -79,9 +81,8 @@ def main() -> None:
             args.legacy_pdf,
         )
 
-    answerable_cases = [case for case in dataset.cases if case.answerable]
     evaluations = [
-        evaluate_retrieval(search_service, answerable_cases, mode, args.top_k)
+        evaluate_retrieval(search_service, retrieval_cases, mode, args.top_k)
         for mode in modes
     ]
     report = {
@@ -147,6 +148,10 @@ def validate_dataset_against_corpus(
     if unknown_dataset_documents:
         unknown_text = ", ".join(sorted(unknown_dataset_documents))
         raise ValueError(f"dataset references unknown documents: {unknown_text}")
+    omitted_corpus_documents = set(documents_by_id).difference(dataset.document_ids)
+    if omitted_corpus_documents:
+        omitted_text = ", ".join(sorted(omitted_corpus_documents))
+        raise ValueError(f"dataset omits corpus documents: {omitted_text}")
 
     for case in dataset.cases:
         for evidence in case.gold:
@@ -173,6 +178,35 @@ def validate_dataset_against_corpus(
                         f"case {case.id} page {page_number} has no searchable "
                         f"content in {evidence.document_id}"
                     )
+
+
+def _require_answerable_cases(dataset: RetrievalDataset) -> list[RetrievalCase]:
+    """Reject retrieval datasets that contain abstention test cases.
+
+    Parameters
+    ----------
+    dataset : RetrievalDataset
+        Dataset intended for positive-evidence ranking metrics.
+
+    Returns
+    -------
+    list[RetrievalCase]
+        Answerable retrieval cases without a silently changed denominator.
+
+    Raises
+    ------
+    ValueError
+        If any case has no answer in the corpus. Such cases belong in the
+        separate answer-abstention evaluation.
+    """
+    unanswerable_case_ids = [case.id for case in dataset.cases if not case.answerable]
+    if unanswerable_case_ids:
+        case_ids = ", ".join(unanswerable_case_ids)
+        raise ValueError(
+            "retrieval datasets must contain only answerable cases; "
+            f"move abstention cases to the RAG quality evaluation: {case_ids}"
+        )
+    return dataset.cases
 
 
 def _summarize_corpus(corpus: LoadedCorpus) -> dict[str, object]:
