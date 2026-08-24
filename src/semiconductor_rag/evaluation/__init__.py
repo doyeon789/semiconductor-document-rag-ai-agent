@@ -27,6 +27,7 @@ from semiconductor_rag.evaluation.reporting import (
 )
 from semiconductor_rag.evaluation.retrieval import (
     EvaluationSearchService,
+    GoldEvidence,
     RetrievalCase,
     RetrievalCaseResult,
     RetrievalDataset,
@@ -42,6 +43,7 @@ __all__ = [
     "EvaluationEvent",
     "EvaluationManifest",
     "EvaluationSearchService",
+    "GoldEvidence",
     "JsonlEventWriter",
     "QualityEvaluation",
     "ReleaseGates",

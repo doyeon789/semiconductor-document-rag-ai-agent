@@ -1,0 +1,392 @@
+{
+  "schema_version": 2,
+  "dataset_id": "ai-security-retrieval-development-v1",
+  "corpus_id": "ai-security-guides-v1",
+  "split": "development",
+  "document_ids": [
+    "kisa-ai-security-guide-corrected-2026",
+    "kisa-ai-threat-response-manual-2026",
+    "kisa-ai-red-teaming-guide-2026",
+    "nist-ai-rmf-1-0",
+    "nist-generative-ai-profile-2024",
+    "owasp-genai-llm-top-10-2026"
+  ],
+  "cases": [
+    {
+      "id": "AISEC-DEV-001",
+      "query": "AI 시스템의 위협 및 위험 평가(TRA)에는 어떤 검토 항목이 포함되는가?",
+      "language": "ko",
+      "intent": "fact_lookup",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [41]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-002",
+      "query": "모델 추출 공격을 막기 위해 질의 횟수 제한, 학습 기반 모니터링, 결과 난독화를 어떻게 활용하는가?",
+      "language": "ko",
+      "intent": "mitigation",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [56]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-003",
+      "query": "반복적이고 과도한 LLM 요청으로 발생하는 자원 고갈과 비용 위험을 KISA와 OWASP는 어떻게 통제하라고 권고하는가?",
+      "language": "ko",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [57]
+        },
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [38]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-004",
+      "query": "LLM이 제안한 코드를 개발 환경에서 사용할 때 취약성 유입을 막기 위한 안전한 코딩 지침은 무엇인가?",
+      "language": "ko",
+      "intent": "mitigation",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [63]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-005",
+      "query": "AI 서비스의 데이터 중독, 회피, 전도 공격은 각각 데이터를 어떻게 악용하는가?",
+      "language": "ko",
+      "intent": "comparison",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [96]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-006",
+      "query": "에이전트 하이재킹은 무엇이며 읽기 권한과 쓰기·실행 권한을 함께 부여할 때 왜 위험한가?",
+      "language": "ko",
+      "intent": "definition_risk",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [42]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-007",
+      "query": "법률 상담 RAG에서 외부 문서에 삽입된 악성 지시문이 잘못된 조언으로 이어지는 과정은?",
+      "language": "ko",
+      "intent": "scenario",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [107]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-008",
+      "query": "LLM 서비스에서 사용자 입력, 모델 출력, CPU·GPU·메모리와 API 지표 중 무엇을 실시간 모니터링해야 하는가?",
+      "language": "ko",
+      "intent": "procedure",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [143]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-009",
+      "query": "What intellectual-property and economic impacts can follow from AI model leakage?",
+      "language": "en",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [179]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-010",
+      "query": "RAG 문서의 데이터 포이즈닝 여부를 해시와 변경 이력으로 진단하는 절차는?",
+      "language": "ko",
+      "intent": "procedure",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [204]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-011",
+      "query": "How does the KISA guide define a red team and explain its purpose for AI security?",
+      "language": "en",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [11]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-012",
+      "query": "블랙박스·화이트박스·그레이박스 AI 레드티밍은 정보 접근 수준과 장단점이 어떻게 다른가?",
+      "language": "ko",
+      "intent": "comparison",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [16]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-013",
+      "query": "레드티밍 사전 협의에서 대상·제외 범위, 금지 행위, 데이터 처리와 영향 허용 범위를 어떻게 정하는가?",
+      "language": "ko",
+      "intent": "procedure",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [24]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-014",
+      "query": "AI 레드티밍 공격 수행에서 자동화 전수 조사와 전문가 심층 점검을 결합하는 2단계 접근법은?",
+      "language": "ko",
+      "intent": "procedure",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [35, 36]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-015",
+      "query": "레드팀 기록과 LLM 운영 모니터링에서 공격 재현과 이상 탐지에 필요한 메타데이터와 지표는 무엇인가?",
+      "language": "ko",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [39]
+        },
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [143]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-016",
+      "query": "Which characteristics does NIST list for a trustworthy AI system?",
+      "language": "en",
+      "intent": "list",
+      "gold": [
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [17]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-017",
+      "query": "Why is GOVERN described as a cross-cutting AI RMF function?",
+      "language": "en",
+      "intent": "exact_term",
+      "gold": [
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [27]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-018",
+      "query": "NIST AI RMF의 MAP 1은 AI 시스템의 맥락을 확립하기 위해 무엇을 문서화하도록 요구하는가?",
+      "language": "ko",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [31]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-019",
+      "query": "What is the purpose of the MEASURE function and where are its categories introduced?",
+      "language": "en",
+      "intent": "exact_term",
+      "gold": [
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [34]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-020",
+      "query": "NIST AI RMF에서 MANAGE 1이 우선순위를 정하고 대응하도록 하는 위험은 무엇인가?",
+      "language": "ko",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [37]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-021",
+      "query": "NIST 생성형 AI 프로파일이 정의하는 confabulation은 무엇이며 왜 의사결정에서 위험한가?",
+      "language": "mixed",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [10]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-022",
+      "query": "What environmental impacts arise from training, maintaining, and operating generative AI systems?",
+      "language": "en",
+      "intent": "fact_lookup",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [12]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-023",
+      "query": "생성형 AI에서 direct prompt injection과 indirect prompt injection은 입력 경로가 어떻게 다른가?",
+      "language": "mixed",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [15]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-024",
+      "query": "Which NIST GAI Profile action recommends protocols for deactivating a generative AI system?",
+      "language": "en",
+      "intent": "exact_term",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [21]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-025",
+      "query": "GAI incident disclosure and standardized incident reporting help prevent future harm in what way?",
+      "language": "en",
+      "intent": "fact_lookup",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [57]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-026",
+      "query": "KISA와 OWASP 2026은 프롬프트 인젝션을 어떻게 설명하며 어떤 입력 표면을 위험으로 보는가?",
+      "language": "ko",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [52]
+        },
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [10]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-027",
+      "query": "OWASP LLM02:2026에서 민감정보 노출은 최종 답변 외에 어떤 채널에서 발생할 수 있는가?",
+      "language": "mixed",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [18]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-028",
+      "query": "What makes excessive agency dangerous when an LLM can dynamically choose and invoke tools?",
+      "language": "en",
+      "intent": "definition_risk",
+      "gold": [
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [23]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-029",
+      "query": "서드파티 모델·데이터·도구 공급자를 점검할 때 NIST의 공급자 평가와 OWASP의 LLM 공급망 위험은 무엇을 강조하는가?",
+      "language": "ko",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [25]
+        },
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [27]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-DEV-030",
+      "query": "How do vector and embedding weaknesses create risks in RAG and vector-backed agent memory?",
+      "language": "en",
+      "intent": "exact_term",
+      "gold": [
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [50]
+        }
+      ]
+    }
+  ]
+}
