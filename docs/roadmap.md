@@ -13,16 +13,18 @@
 
 완료 기준: 6개 PDF 773쪽에서 제외 페이지를 빼고 인덱스를 만들며 모든 검색 결과가 원본 문서와 페이지로 역추적됩니다.
 
-## 2. AI 보안 평가셋 구축
+## 2. AI 보안 평가셋 구축 — 완료
 
 - KISA·NIST·OWASP 문서별 정답 페이지를 직접 확인합니다.
 - 한국어, 영어, 한영 혼합 질문을 포함합니다.
-- 단일 문서, 기관 간 비교, exact term, 답변 불가능 질문을 분리합니다.
+- 단일 문서, 기관 간 비교, exact term, 한영 교차 질문을 분리합니다.
 - 기존 단일 문서 평가 결과는 회귀 참고값으로만 남깁니다.
 
-완료 기준: 최소 30개 개발 질문과 별도 holdout 질문이 있고, 질문마다 `document_id`와 `gold_pages`가 있습니다.
+완료 기준: development 30문항과 별도 holdout 15문항이 있고, 질문마다 하나 이상의 `document_id + gold page`가 있습니다. 답변 불가능 질문은 양성 검색 지표와 섞지 않고 RAG 품질 평가에서 별도로 다룹니다.
 
 ## 3. Chunk와 문서 구조 개선
+
+현재 다음 작업입니다. Dense 기준선은 development Page Hit@5 0.767, MRR 0.552이고 holdout Page Hit@5 0.467, MRR 0.283입니다. 정확한 절·페이지 순위가 낮고, 기관 간 비교 질문의 전체 문서 회수도 development 0/4, holdout 1/3에 그쳤습니다.
 
 - 반복 머리말·꼬리말과 목차 노이즈를 제거합니다.
 - 제목과 절 경계를 Chunk metadata에 보존합니다.
@@ -38,7 +40,7 @@
 - 후보 수, RRF 상수, Reranker 모델과 threshold를 한 번에 하나씩 변경합니다.
 - 점수 향상이 없는 복잡도는 제거합니다.
 
-완료 기준: holdout Page Hit@5와 MRR 목표를 만족하고 warm latency 회귀가 허용 범위 안입니다.
+완료 기준: holdout Page Hit@5와 MRR 목표를 만족하고 prepared latency 회귀가 허용 범위 안입니다.
 
 ## 5. Evidence와 Citation 정밀화
 
@@ -54,7 +56,7 @@
 - [x] API와 Streamlit의 단일 문서 상수를 다중 문서 metadata로 교체합니다.
 - [x] AI 보안 예시 질문을 제공합니다.
 - [ ] 기관·언어·문서 필터를 제공합니다.
-- 새 코퍼스 평가 결과만 README에 게시합니다.
+- [x] 새 코퍼스 검색 평가 결과를 README에 게시합니다.
 - 필요성이 없는 옛 단일 문서 fixture와 이름을 제거합니다.
 
 ## 보류하는 항목
