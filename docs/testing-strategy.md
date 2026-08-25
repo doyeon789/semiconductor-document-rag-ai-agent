@@ -39,6 +39,10 @@
 - Hybrid 결과에서 같은 Chunk가 중복되지 않습니다.
 - Reranker는 후보 수와 같은 개수의 점수를 반환해야 합니다.
 - 각 SearchHit은 원본 version ID와 페이지를 유지합니다.
+- 다중 문서 평가는 `document_id + page_number`가 모두 같을 때만 정답입니다.
+- 같은 문서·페이지에서 나온 여러 Chunk는 검색 지표에서 한 번만 셉니다.
+- committed development와 holdout은 ID·질문·정답 문서/페이지가 겹치지 않고 catalog 문서 집합과 일치해야 합니다.
+- 로컬 실제 코퍼스 검증에서 schema v2 gold page는 문서 범위 안에 있고 제외되지 않았으며 검색 가능한 텍스트를 가져야 합니다.
 
 ### Answer와 Agent
 
@@ -55,8 +59,8 @@
 2. 모든 제외 페이지가 Chunk 인덱스에서 빠집니다.
 3. 서로 다른 문서의 같은 페이지 번호가 별도 검색 결과로 유지됩니다.
 4. SearchHit·Evidence·Citation의 source ID와 PDF 경로가 일치합니다.
-5. 기관 필터와 언어 필터가 모든 검색 모드에 전달됩니다.
-6. 비교 질문이 두 개 이상 필요한 문서의 Evidence를 포함합니다.
+5. [예정] 기관·언어 필터 구현 시 모든 검색 모드 전달을 검사합니다.
+6. [예정] 다중 문서 답변 평가에서 비교 질문이 필요한 문서의 Evidence를 모두 포함하는지 검사합니다.
 7. 없는 문서나 변조된 PDF가 부분 성공으로 숨겨지지 않습니다.
 
 ## 5. 명령
@@ -69,11 +73,12 @@
 .\.venv\Scripts\python.exe -m ruff format --check .
 .\.venv\Scripts\python.exe -m ruff check .
 
-# 현재 애플리케이션과 코퍼스 스크립트 타입 검사
-.\.venv\Scripts\python.exe -m mypy src scripts\download_corpus.py
+# CI와 같은 타입 검사 범위
+.\.venv\Scripts\python.exe -m mypy `
+  apps src tests scripts\evaluate_retrieval.py scripts\evaluate_rag.py
 ```
 
-전체 `scripts/` mypy는 별도 PDF 생성 유틸리티의 ReportLab type stub 문제와 섞일 수 있으므로, CI와 같은 범위를 기준으로 판단합니다.
+AI 보안 실제 PDF와 모델 평가는 CI에서 실행하지 않습니다. CI는 데이터셋 schema와 검증 로직을 합성 코퍼스로 결정적으로 검사합니다. 실제 gold의 문서 ID·페이지 범위·제외 페이지·검색 가능한 Chunk 연결은 로컬 평가 실행이 코퍼스를 읽을 때 검증합니다.
 
 ## 6. 모델 테스트 원칙
 

@@ -1,0 +1,208 @@
+{
+  "schema_version": 2,
+  "dataset_id": "ai-security-retrieval-holdout-v1",
+  "corpus_id": "ai-security-guides-v1",
+  "split": "holdout",
+  "document_ids": [
+    "kisa-ai-security-guide-corrected-2026",
+    "kisa-ai-threat-response-manual-2026",
+    "kisa-ai-red-teaming-guide-2026",
+    "nist-ai-rmf-1-0",
+    "nist-generative-ai-profile-2024",
+    "owasp-genai-llm-top-10-2026"
+  ],
+  "cases": [
+    {
+      "id": "AISEC-HOLD-001",
+      "query": "How should malicious participants be detected in federated learning?",
+      "language": "en",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [51]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-002",
+      "query": "사람이 알아보기 어려운 미세한 변조로 모델을 속이는 적대적 예제 공격에는 어떤 방어를 적용하는가?",
+      "language": "ko",
+      "intent": "mitigation",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [53]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-003",
+      "query": "사용이 끝난 AI 모델과 관련 데이터를 복구 불가능하게 파기하려면 무엇을 확인해야 하는가?",
+      "language": "ko",
+      "intent": "procedure",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [76]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-004",
+      "query": "Why is unvalidated LLM output dangerous when passed directly to UI, databases, commands, or code execution?",
+      "language": "en",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [38]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-005",
+      "query": "KISA와 OWASP는 RAG에서 사용자·tenant별 문서 접근 권한과 벡터 검색을 어떻게 격리하라고 권고하는가?",
+      "language": "ko",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [140]
+        },
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [52]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-006",
+      "query": "모델 DoS를 막기 위해 API 요청 횟수·속도·입력 길이와 특수 토큰을 어떻게 통제하는가?",
+      "language": "ko",
+      "intent": "mitigation",
+      "gold": [
+        {
+          "document_id": "kisa-ai-threat-response-manual-2026",
+          "pages": [192]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-007",
+      "query": "AI 레드티밍에서 Critical부터 Low까지 위험 등급을 나누는 판단 기준은 무엇인가?",
+      "language": "ko",
+      "intent": "exact_term",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [27]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-008",
+      "query": "레드티밍 영향 분석에서 실행 가능성, 신규성, 위험도와 실제 시스템 영향을 어떻게 평가하는가?",
+      "language": "ko",
+      "intent": "procedure",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [37]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-009",
+      "query": "Why must an AI red-teaming report state that its result is only a snapshot of the tested system?",
+      "language": "en",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [42]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-010",
+      "query": "레드티밍 후속 조치에서 Critical·High·Medium·Low별 조치 우선순위와 기한은 어떻게 다른가?",
+      "language": "mixed",
+      "intent": "comparison",
+      "gold": [
+        {
+          "document_id": "kisa-ai-red-teaming-guide-2026",
+          "pages": [45]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-011",
+      "query": "KISA의 기밀성·무결성·가용성 목표와 NIST의 safe, secure and resilient 특성은 AI 위험을 어떻게 다르게 설명하는가?",
+      "language": "mixed",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "kisa-ai-security-guide-corrected-2026",
+          "pages": [29]
+        },
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [20]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-012",
+      "query": "How does NIST distinguish transparency from explainability and interpretability?",
+      "language": "en",
+      "intent": "comparison",
+      "gold": [
+        {
+          "document_id": "nist-ai-rmf-1-0",
+          "pages": [21, 22]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-013",
+      "query": "생성형 AI에서 자동화 편향과 인간의 감정적 얽힘은 어떤 위험을 만드는가?",
+      "language": "ko",
+      "intent": "cross_language",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [13]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-014",
+      "query": "NIST의 information integrity 위험과 OWASP LLM07 misinformation은 신뢰할 만해 보이는 잘못된 출력을 어떻게 설명하는가?",
+      "language": "mixed",
+      "intent": "cross_document",
+      "gold": [
+        {
+          "document_id": "nist-generative-ai-profile-2024",
+          "pages": [14]
+        },
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [43]
+        }
+      ]
+    },
+    {
+      "id": "AISEC-HOLD-015",
+      "query": "What is improper output handling, and why must LLM-generated content be validated before downstream use?",
+      "language": "en",
+      "intent": "definition_risk",
+      "gold": [
+        {
+          "document_id": "owasp-genai-llm-top-10-2026",
+          "pages": [55]
+        }
+      ]
+    }
+  ]
+}
