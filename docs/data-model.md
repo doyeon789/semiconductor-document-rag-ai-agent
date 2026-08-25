@@ -23,7 +23,7 @@ erDiagram
 | `DocumentVersion` | `version_id`, `content_sha256`, `parser_config_hash`, `page_count` | 해시는 64자 소문자 SHA-256입니다. |
 | `Page` | `page_id`, `version_id`, `page_number`, `width`, `height`, `text_coverage` | `page_number`는 1 이상입니다. |
 | `Element` | `element_id`, `page_id`, `text`, `reading_order`, `bbox` | 텍스트가 비어 있지 않고 bbox 좌표가 유효합니다. |
-| `Chunk` | `chunk_id`, `version_id`, `text`, `page_start`, `page_end`, `content_hash` | `page_end >= page_start`입니다. |
+| `Chunk` | `chunk_id`, `version_id`, `text`, `section_path`, `page_start`, `page_end`, `content_hash` | `page_end >= page_start`이며 검색 문맥과 근거 원문을 분리합니다. |
 | `EvidenceBlock` | `document_id`, `document_title`, `version_id`, `chunk_id`, `page_number`, `text`, `score` | 한 Evidence는 한 PDF 페이지에 속합니다. |
 | `GroundedCitation` | Claim·Evidence·Chunk·Document·Version ID, `page_number`, `quote` | quote가 연결된 Evidence 원문에 포함됩니다. |
 | `AgentRun` | 답변, 검색 모드·질의, step, 종료 이유, trace | 종료 이유와 실행 경로를 재구성할 수 있습니다. |
@@ -34,6 +34,7 @@ erDiagram
 - `version_id`에서 `page:{page_number}`로 UUID를 파생합니다.
 - `page_id`와 읽기 순서에서 Element UUID를 파생합니다.
 - Chunk ID와 content hash는 같은 입력에서 안정적으로 다시 만들어져야 합니다.
+- `section_path`는 검색 전용 `retrieval_text`에만 투영하며 `text`와 content hash를 바꾸지 않습니다.
 - 서로 다른 문서는 페이지 번호가 같아도 `document_id`와 `version_id`로 구분합니다.
 
 ## 4. 코퍼스 출처 모델

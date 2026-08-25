@@ -30,6 +30,8 @@ flowchart LR
 - 현재 검색 Chunk는 한 페이지 범위 안에서 만듭니다.
 - Chunk는 포함 Element ID, 페이지 시작·끝, token 근사치와 content hash를 가집니다.
 - 페이지 전체가 너무 길면 Element 경계를 우선해 나눕니다.
+- 짧은 영문 2단계 절 제목과 NIST function 표 제목은 같은 페이지의 후속 Chunk `section_path`에 최대 하나만 보존합니다.
+- 절 문맥은 원문 `text`, Chunk 경계, ID, content hash와 token 수를 바꾸지 않습니다.
 - 답변 Evidence는 여러 페이지를 한 Chunk로 받지 않습니다.
 
 ## 3. 코퍼스 수집 계약
@@ -87,7 +89,7 @@ CorpusSource
 ## 7. 현재 제외한 기능
 
 - OCR 자동 감지와 병합
-- 제목 계층·표 구조의 별도 파싱
+- 글꼴 기반 제목 계층, 한국어 체크리스트와 제목의 구조 구분
 - 반복 header/footer 자동 제거
 - 비동기 job과 영구 저장
 - 사용자 업로드와 삭제

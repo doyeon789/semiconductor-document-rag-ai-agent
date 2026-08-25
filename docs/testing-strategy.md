@@ -32,6 +32,8 @@
 - Element bbox와 읽기 순서가 유효합니다.
 - Chunk page range가 실제 페이지 범위를 벗어나지 않습니다.
 - 같은 입력으로 만든 ID와 content hash가 안정적입니다.
+- 절 문맥을 추가해도 원문 경계, Element ID, Chunk ID, content hash와 token 수가 바뀌지 않습니다.
+- 절 제목은 같은 물리 페이지에서 최대 하나만 상속하며 날짜·체크리스트 행을 제목으로 오인하지 않습니다.
 
 ### Retrieval
 
@@ -39,6 +41,7 @@
 - Hybrid 결과에서 같은 Chunk가 중복되지 않습니다.
 - Reranker는 후보 수와 같은 개수의 점수를 반환해야 합니다.
 - 각 SearchHit은 원본 version ID와 페이지를 유지합니다.
+- BM25·Dense·Reranker는 검색 전용 절 문맥을 사용하지만 Evidence·Citation·API는 원문만 노출합니다.
 - 다중 문서 평가는 `document_id + page_number`가 모두 같을 때만 정답입니다.
 - 같은 문서·페이지에서 나온 여러 Chunk는 검색 지표에서 한 번만 셉니다.
 - committed development와 holdout은 ID·질문·정답 문서/페이지가 겹치지 않고 catalog 문서 집합과 일치해야 합니다.

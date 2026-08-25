@@ -31,6 +31,16 @@ flowchart LR
 
 Dense index와 Reranker는 해당 모드를 처음 사용할 때만 준비합니다. 첫 요청 latency와 warm latency를 구분해서 측정합니다.
 
+### 검색 텍스트와 근거 원문
+
+- `Chunk.text`는 PDF에서 추출한 원문이며 Evidence·Citation·검색 API에 사용합니다.
+- `Chunk.retrieval_text`는 원문에 없는 `section_path` 항목과 `text`로 만든 검색 전용 표현입니다.
+- BM25, Dense, Reranker만 `retrieval_text`를 사용합니다.
+- 현재는 짧은 ASCII 2단계 절 제목과 NIST function 표 제목만 같은 물리 페이지의 후속 Chunk에 상속합니다.
+- 원문에 제목이 이미 있으면 중복하지 않고, 다른 페이지로는 상속하지 않습니다.
+
+2026-08-25 검증 코퍼스에서는 1,282개 Chunk 중 42개의 검색 입력만 달라졌습니다. Mixed-language 번호 목록은 KISA 체크리스트와 제목을 글꼴 정보 없이 구분하기 어려워 제외합니다.
+
 ## 4. 후보 결합과 Reranking
 
 Raw BM25 점수와 cosine 점수는 직접 더하지 않습니다. 각 검색기의 순위를 RRF로 결합합니다.

@@ -22,21 +22,24 @@
 
 완료 기준: development 30문항과 별도 holdout 15문항이 있고, 질문마다 하나 이상의 `document_id + gold page`가 있습니다. 답변 불가능 질문은 양성 검색 지표와 섞지 않고 RAG 품질 평가에서 별도로 다룹니다.
 
-## 3. Chunk와 문서 구조 개선
+## 3. Chunk와 문서 구조 개선 — 1차 실험 완료, Gate 미달
 
-현재 다음 작업입니다. Dense 기준선은 development Page Hit@5 0.767, MRR 0.552이고 holdout Page Hit@5 0.467, MRR 0.283입니다. 정확한 절·페이지 순위가 낮고, 기관 간 비교 질문의 전체 문서 회수도 development 0/4, holdout 1/3에 그쳤습니다.
+Dense 기준선은 development Page Hit@5 0.767, MRR 0.552이고 holdout Page Hit@5 0.467, MRR 0.283입니다. 정확한 절·페이지 순위가 낮고, 기관 간 비교 질문의 전체 문서 회수도 development 0/4, holdout 1/3에 그쳤습니다.
 
-- 반복 머리말·꼬리말과 목차 노이즈를 제거합니다.
-- 제목과 절 경계를 Chunk metadata에 보존합니다.
-- 긴 페이지의 고정 페이지 Chunk와 절 기반 Chunk를 비교합니다.
-- 인접 페이지 문맥 확장은 평가에서 필요한 경우에만 적용합니다.
+- [x] 원문과 검색 입력을 분리하고 같은 페이지의 보수적 NIST 절·표 문맥을 보존합니다.
+- [x] Chunk 경계·ID·hash 불변과 Citation 원문 격리를 테스트합니다.
+- [ ] 반복 머리말·꼬리말과 목차 노이즈 제거는 별도 단일 변수로 검증합니다.
+- [ ] 글꼴 metadata가 필요할 때 한국어 제목과 체크리스트 행을 구분합니다.
+- [ ] 긴 페이지의 고정 페이지 Chunk와 절 기반 Chunk를 비교합니다.
 
-완료 기준: 같은 검색 모델에서 Page Hit@5와 MRR이 baseline보다 개선되고 Citation 오염이 늘지 않습니다.
+2026-08-25 commit `eed40db`의 1차 실험은 development Page Hit@5를 0.767로 유지하고 MRR을 0.552에서 0.559로 높였습니다. Holdout Page Hit@5와 MRR은 각각 0.467, 0.283으로 같았고 NDCG@5는 0.314에서 0.309로 소폭 낮아졌습니다. 원문 오염은 없지만 Page Hit 개선 기준에는 아직 도달하지 못했습니다.
 
-## 4. 검색·Reranking 튜닝
+완료 기준: 같은 검색 모델에서 Page Hit@5와 MRR이 baseline보다 개선되고 Citation 오염이 늘지 않습니다. 다음 구조 실험은 실제 실패 질문이 글꼴 기반 제목이나 표 구조의 필요성을 보여줄 때 재개합니다.
+
+## 4. 검색·Reranking 튜닝 — 다음 우선순위
 
 - BM25, Dense, Hybrid, Rerank를 새 평가셋에서 다시 비교합니다.
-- 한국어↔영어 기관 용어와 AI 보안 약어의 검색 실패를 분석합니다.
+- 한국어↔영어 기관 용어와 AI 보안 약어를 이용한 질의 확장을 먼저 비교합니다.
 - 후보 수, RRF 상수, Reranker 모델과 threshold를 한 번에 하나씩 변경합니다.
 - 점수 향상이 없는 복잡도는 제거합니다.
 

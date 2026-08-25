@@ -110,6 +110,19 @@ development의 1차 선택 기준은 Page Hit@5와 Document Coverage이므로 De
 
 따라서 전체 holdout Document Coverage@5 0.867만으로 문서 선택이 해결됐다고 볼 수 없습니다. 정확한 절·페이지 순위와 기관 간 비교의 문서 균형, 한영 교차 검색이 모두 현재 병목입니다. Rerank는 정확도를 개선하지 못하면서 평균 20초 이상이므로 현재 설정을 기본값으로 채택하지 않습니다. 현재 CLI는 aggregate와 case-level 결과를 저장하며 slice 자동 집계는 다음 평가 도구 개선 항목으로 남깁니다.
 
+### 2026-08-25 보수적 절 문맥 실험
+
+Commit `eed40db`에서 Chunk 경계와 원문은 유지하고, 짧은 ASCII 2단계 절 제목과 NIST function 표 제목을 같은 페이지의 후속 Chunk에만 검색 문맥으로 추가했습니다. 실제로 `retrieval_text`가 달라진 Chunk는 42/1,282개이며 Evidence·Citation·API는 계속 원문 `text`를 사용합니다.
+
+| Split | Page Hit@5 | Document Coverage@5 | Recall@5 | MRR | NDCG@5 | prepared p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| development · baseline | 0.767 | 0.833 | 0.700 | 0.552 | 0.566 | 337.40 ms |
+| development · section context | 0.767 | 0.833 | 0.700 | **0.559** | **0.572** | 326.66 ms |
+| holdout · baseline | 0.467 | 0.867 | 0.433 | 0.283 | **0.314** | 394.16 ms |
+| holdout · section context | 0.467 | 0.867 | 0.433 | 0.283 | 0.309 | 337.90 ms |
+
+Development에서는 `AISEC-DEV-019`가 3위에서 2위, `AISEC-DEV-022`가 5위에서 4위로 올랐고 정답 순위 하락은 없었습니다. 설정 선택 뒤 한 번 실행한 holdout에서는 주요 지표와 첫 정답 1위가 같았지만, 정답이 21·22쪽인 `AISEC-HOLD-012`에서 두 번째 정답 21쪽이 2위에서 3위로 내려가 NDCG@5가 0.005 낮아졌습니다. 이 변경은 primary metric 회귀가 없는 작은 순위 개선으로 유지하되, Chunk 구조 단계의 Page Hit 개선 Gate를 통과한 것으로 판정하지 않습니다.
+
 ## 5. 답변과 Citation 지표
 
 | 지표 | 초기 Gate |
