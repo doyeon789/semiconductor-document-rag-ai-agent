@@ -128,7 +128,12 @@ class LowConfidenceApiTestReranker(ApiTestReranker):
         return tuple(-1.1 for _ in documents)
 
 
-def _make_chunk(number: int, page: int, text: str) -> Chunk:
+def _make_chunk(
+    number: int,
+    page: int,
+    text: str,
+    section_path: tuple[str, ...] = (),
+) -> Chunk:
     """Create one stable API test chunk.
 
     Parameters
@@ -139,6 +144,8 @@ def _make_chunk(number: int, page: int, text: str) -> Chunk:
         One-based source page number.
     text : str
         Searchable source text.
+    section_path : tuple of str, default=()
+        Search-only hierarchy context.
 
     Returns
     -------
@@ -152,6 +159,7 @@ def _make_chunk(number: int, page: int, text: str) -> Chunk:
         text=text,
         page_start=page,
         page_end=page,
+        section_path=list(section_path),
         token_count=len(text.split()),
         content_hash=sha256(text.encode()).hexdigest(),
     )
@@ -167,7 +175,12 @@ def _provide_test_search_service() -> LocalSearchService:
     """
     return LocalSearchService(
         [
-            _make_chunk(1, 8, "산화 공정은 절연막을 형성한다."),
+            _make_chunk(
+                1,
+                8,
+                "산화 공정은 절연막을 형성한다.",
+                ("2.2. Test Section",),
+            ),
             _make_chunk(2, 31, "패키지 공정은 다이를 조립한다."),
         ],
         ApiTestEmbedder(),
@@ -215,6 +228,7 @@ def test_search_endpoint_returns_ranked_page_traceability() -> None:
     assert body["results"][0]["page_start"] == 8
     assert body["results"][0]["page_end"] == 8
     assert "산화 공정" in body["results"][0]["text"]
+    assert "Test Section" not in body["results"][0]["text"]
     assert body["results"][0]["score"] > 0
 
 

@@ -280,6 +280,29 @@ class Chunk(DomainModel):
             raise ValueError("page_end must be greater than or equal to page_start")
         return self
 
+    @property
+    def retrieval_text(self) -> str:
+        """Project section hierarchy and raw text for search models.
+
+        Returns
+        -------
+        str
+            Search-only text prefixed with the section path.
+
+        Notes
+        -----
+        ``text`` remains the verbatim PDF-derived evidence used by answering
+        and Citation validation. This projection must not be exposed as a
+        source quote.
+        """
+        normalized_text = self.text.casefold()
+        missing_context = tuple(
+            section
+            for section in self.section_path
+            if section.casefold() not in normalized_text
+        )
+        return "\n\n".join((*missing_context, self.text))
+
 
 class Citation(DomainModel):
     """Connect one answer claim to versioned evidence on a PDF page."""

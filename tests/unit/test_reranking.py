@@ -43,7 +43,12 @@ class TestReranker:
         return tuple(0.9 if "relevant" in document else 0.1 for document in documents)
 
 
-def _make_hit(number: int, text: str, score: float) -> SearchHit:
+def _make_hit(
+    number: int,
+    text: str,
+    score: float,
+    section_path: tuple[str, ...] = (),
+) -> SearchHit:
     """Create a stable page-aware candidate hit.
 
     Parameters
@@ -54,6 +59,8 @@ def _make_hit(number: int, text: str, score: float) -> SearchHit:
         Candidate text.
     score : float
         First-stage retrieval score.
+    section_path : tuple of str, default=()
+        Search-only hierarchy context.
 
     Returns
     -------
@@ -68,6 +75,7 @@ def _make_hit(number: int, text: str, score: float) -> SearchHit:
             text=text,
             page_start=number,
             page_end=number,
+            section_path=list(section_path),
             token_count=len(text.split()),
             content_hash=sha256(text.encode()).hexdigest(),
         ),
@@ -86,6 +94,19 @@ def test_reranker_promotes_semantically_relevant_candidate() -> None:
 
     assert [hit.chunk.page_start for hit in reranked] == [2, 1]
     assert [hit.score for hit in reranked] == [0.9, 0.1]
+
+
+def test_reranker_scores_search_only_structure_context() -> None:
+    """Send hierarchy context to the model without changing source text."""
+    hits = (
+        _make_hit(1, "first raw candidate", 10.0),
+        _make_hit(2, "second raw candidate", 1.0, ("relevant section",)),
+    )
+
+    reranked = rerank_search_hits("section question", hits, TestReranker())
+
+    assert [hit.chunk.page_start for hit in reranked] == [2, 1]
+    assert reranked[0].chunk.text == "second raw candidate"
 
 
 def test_reranker_rejects_nonpositive_limit() -> None:

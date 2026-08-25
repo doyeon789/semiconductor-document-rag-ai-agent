@@ -11,7 +11,12 @@ from semiconductor_rag.retrieval import BM25Index, tokenize_search_text
 VERSION_ID = UUID("55555555-5555-4555-8555-555555555555")
 
 
-def _make_chunk(number: int, page: int, text: str) -> Chunk:
+def _make_chunk(
+    number: int,
+    page: int,
+    text: str,
+    section_path: tuple[str, ...] = (),
+) -> Chunk:
     """Create a stable searchable chunk for retrieval tests.
 
     Parameters
@@ -22,6 +27,8 @@ def _make_chunk(number: int, page: int, text: str) -> Chunk:
         One-based source page number.
     text : str
         Searchable source text.
+    section_path : tuple of str, default=()
+        Search-only hierarchy context.
 
     Returns
     -------
@@ -35,6 +42,7 @@ def _make_chunk(number: int, page: int, text: str) -> Chunk:
         text=text,
         page_start=page,
         page_end=page,
+        section_path=list(section_path),
         token_count=len(text.split()),
         content_hash=sha256(text.encode()).hexdigest(),
     )
@@ -77,6 +85,22 @@ def test_bm25_uses_chunk_id_for_deterministic_ties() -> None:
     hits = index.search("동일 검색어")
 
     assert [hit.chunk.chunk_id.int for hit in hits] == [1, 2]
+
+
+def test_bm25_indexes_search_only_structure_context() -> None:
+    """Use a section title without adding it to verbatim chunk text."""
+    contextual = _make_chunk(
+        1,
+        10,
+        "Generated false content can mislead decisions.",
+        ("2.2. Confabulation",),
+    )
+    index = BM25Index([contextual, _make_chunk(2, 20, "Unrelated system guidance.")])
+
+    hits = index.search("confabulation", top_k=1)
+
+    assert hits[0].chunk == contextual
+    assert "Confabulation" not in hits[0].chunk.text
 
 
 def test_bm25_rejects_blank_queries_and_invalid_limits() -> None:

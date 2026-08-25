@@ -140,6 +140,45 @@ def test_chunk_rejects_reversed_page_range() -> None:
         )
 
 
+def test_chunk_projects_structure_without_changing_source_text() -> None:
+    """Keep retrieval context separate from verbatim PDF evidence."""
+    source_text = "Confabulation can mislead consequential decisions."
+    chunk = Chunk(
+        chunk_id=uuid4(),
+        version_id=uuid4(),
+        chunk_type=ChunkType.TEXT,
+        text=source_text,
+        page_start=10,
+        page_end=10,
+        section_path=["2. Risks Unique to GAI", "2.2. Confabulation"],
+        token_count=6,
+        content_hash=SHA256,
+    )
+
+    assert chunk.text == source_text
+    assert chunk.retrieval_text == (
+        f"2. Risks Unique to GAI\n\n2.2. Confabulation\n\n{source_text}"
+    )
+
+
+def test_chunk_does_not_duplicate_context_already_in_source_text() -> None:
+    """Leave a heading-bearing source Chunk unchanged for retrieval."""
+    source_text = "2.2. Confabulation\n\nDefinition and risks."
+    chunk = Chunk(
+        chunk_id=uuid4(),
+        version_id=uuid4(),
+        chunk_type=ChunkType.TEXT,
+        text=source_text,
+        page_start=10,
+        page_end=10,
+        section_path=["2.2. Confabulation"],
+        token_count=6,
+        content_hash=SHA256,
+    )
+
+    assert chunk.retrieval_text == source_text
+
+
 def test_citation_preserves_versioned_page_reference() -> None:
     """Keep document, version, chunk, and page identifiers in a citation."""
     document_id = uuid4()

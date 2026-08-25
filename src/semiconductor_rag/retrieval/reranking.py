@@ -151,7 +151,7 @@ def rerank_search_hits(
         raise ValueError("top_k must be positive")
     if not hits:
         return ()
-    scores = reranker.score(query, [hit.chunk.text for hit in hits])
+    scores = reranker.score(query, [hit.chunk.retrieval_text for hit in hits])
     if len(scores) != len(hits):
         raise ValueError("reranker must return one score per search hit")
     reranked = (
