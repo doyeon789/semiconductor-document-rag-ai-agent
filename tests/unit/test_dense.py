@@ -66,7 +66,12 @@ class KeywordEmbedder:
         )
 
 
-def _make_chunk(number: int, page: int, text: str) -> Chunk:
+def _make_chunk(
+    number: int,
+    page: int,
+    text: str,
+    section_path: tuple[str, ...] = (),
+) -> Chunk:
     """Create a stable searchable chunk for dense retrieval tests.
 
     Parameters
@@ -77,6 +82,8 @@ def _make_chunk(number: int, page: int, text: str) -> Chunk:
         One-based source page number.
     text : str
         Searchable source text.
+    section_path : tuple of str, default=()
+        Search-only hierarchy context.
 
     Returns
     -------
@@ -90,6 +97,7 @@ def _make_chunk(number: int, page: int, text: str) -> Chunk:
         text=text,
         page_start=page,
         page_end=page,
+        section_path=list(section_path),
         token_count=len(text.split()),
         content_hash=sha256(text.encode()).hexdigest(),
     )
@@ -125,6 +133,25 @@ def test_dense_search_uses_chunk_id_for_deterministic_ties() -> None:
     hits = index.search("산화")
 
     assert [hit.chunk.chunk_id.int for hit in hits] == [1, 2]
+
+
+def test_dense_index_embeds_search_only_structure_context() -> None:
+    """Embed hierarchy context while returning the original PDF text."""
+    contextual = _make_chunk(
+        1,
+        8,
+        "일반 설명",
+        ("산화 공정",),
+    )
+    index = DenseIndex(
+        [contextual, _make_chunk(2, 31, "패키지 공정")],
+        KeywordEmbedder(),
+    )
+
+    hits = index.search("절연막", top_k=1)
+
+    assert hits[0].chunk == contextual
+    assert hits[0].chunk.text == "일반 설명"
 
 
 def test_dense_search_rejects_zero_vectors() -> None:

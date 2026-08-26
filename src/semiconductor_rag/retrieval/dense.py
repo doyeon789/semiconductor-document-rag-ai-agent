@@ -26,7 +26,7 @@ class DenseIndex:
         self._chunks = tuple(chunks)
         self._embedder = embedder
         vectors = (
-            embedder.embed_documents([chunk.text for chunk in self._chunks])
+            embedder.embed_documents([chunk.retrieval_text for chunk in self._chunks])
             if self._chunks
             else ()
         )

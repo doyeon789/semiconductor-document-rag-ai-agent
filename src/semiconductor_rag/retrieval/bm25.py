@@ -74,7 +74,9 @@ class BM25Index:
         self._chunks = tuple(chunks)
         self._k1 = k1
         self._b = b
-        tokenized = tuple(tokenize_search_text(chunk.text) for chunk in self._chunks)
+        tokenized = tuple(
+            tokenize_search_text(chunk.retrieval_text) for chunk in self._chunks
+        )
         self._term_frequencies = tuple(Counter(tokens) for tokens in tokenized)
         self._document_lengths = tuple(len(tokens) for tokens in tokenized)
         self._average_document_length = (

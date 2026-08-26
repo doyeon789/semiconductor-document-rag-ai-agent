@@ -31,6 +31,7 @@ AI 보안 지침은 기관과 버전마다 용어와 권고 범위가 다릅니�
 | 공개 코퍼스 출처·버전·라이선스 기록 | 완료 |
 | KISA·NIST·OWASP PDF 6종 자동 다운로드와 SHA-256 검증 | 완료 |
 | PyMuPDF 페이지 추출과 페이지 단위 Chunk | 완료 |
+| 원문과 분리된 보수적 절 문맥 검색 | 완료 |
 | 로컬 BM25·Dense·Hybrid·Rerank 검색 | 완료 |
 | 원문 발췌 답변·Citation 검증·답변 보류 | 완료 |
 | LangGraph 기반 제한된 재검색과 실행 trace | 완료 |
@@ -66,6 +67,17 @@ AI 보안 지침은 기관과 버전마다 용어와 권고 범위가 다릅니�
 
 전체 질문의 평균 문서 커버리지는 높지만 기관 간 비교 질문만 보면 Dense가 필요한 문서를 모두 찾은 경우는 development 0/4, holdout 1/3입니다. 정확한 페이지 순위와 다중 문서 회수, 한영 교차 검색이 모두 병목입니다. Rerank는 개발셋 정확도를 개선하지 못하면서 질문당 약 20초가 걸렸습니다. 따라서 현재 기준선은 품질 Gate를 통과한 최종 성능이 아니라 다음 개선이 넘어야 할 출발점입니다.
 
+### 보수적 절 문맥 실험
+
+2026-08-25 commit `eed40db`에서 원문 Chunk 경계는 그대로 두고, 제목이 빠진 같은 페이지의 후속 Chunk 42개에만 짧은 영문 2단계 절 제목 또는 NIST function 표 제목을 검색 입력으로 보강했습니다. BM25·Dense·Reranker만 검색 전용 `retrieval_text`를 사용하고 Evidence·Citation·API는 계속 원문 `text`를 사용합니다.
+
+| Split | Page Hit@5 | Document Coverage@5 | Recall@5 | MRR | NDCG@5 | prepared p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| development · baseline → section context | 0.767 → 0.767 | 0.833 → 0.833 | 0.700 → 0.700 | 0.552 → **0.559** | 0.566 → **0.572** | 337.40 → 326.66 ms |
+| holdout · baseline → section context | 0.467 → 0.467 | 0.867 → 0.867 | 0.433 → 0.433 | 0.283 → 0.283 | 0.314 → 0.309 | 394.16 → 337.90 ms |
+
+Development에서는 정답 순위 두 건이 `3→2`, `5→4`로 올라갔고 하락한 정답 순위는 없었습니다. 동결된 holdout의 주요 지표와 첫 정답 1위는 그대로였지만, 한 문항의 두 번째 정답 페이지가 `2→3`위로 내려가 NDCG@5가 0.005 낮아졌습니다. 따라서 이 변경은 원문 근거를 훼손하지 않는 작은 개선으로 유지하지만, 전체 Chunk 구조 개선 Gate를 통과한 것으로 보지는 않습니다.
+
 ## 시작하기
 
 Windows PowerShell 기준입니다.
@@ -100,6 +112,7 @@ PDF는 Git에서 제외된 `data/raw/ai-security/`에 저장되고, 다운로드
 공식 PDF 6종
   → PyMuPDF 네이티브 텍스트 추출
   → 물리 페이지 단위 Chunk
+  → 같은 페이지의 검색 전용 절 문맥 보강
   → BM25 + 다국어 Dense 검색
   → Reciprocal Rank Fusion
   → 다국어 Cross-Encoder Reranking

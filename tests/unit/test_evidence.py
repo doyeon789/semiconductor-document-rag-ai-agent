@@ -18,6 +18,7 @@ def _make_hit(
     text: str,
     score: float,
     source: DocumentSource | None = None,
+    section_path: tuple[str, ...] = (),
 ) -> SearchHit:
     """Create a stable page-local search hit.
 
@@ -33,6 +34,8 @@ def _make_hit(
         Retrieval or reranker score.
     source : DocumentSource or None, default=None
         Optional public document metadata.
+    section_path : tuple of str, default=()
+        Search-only hierarchy context.
 
     Returns
     -------
@@ -47,6 +50,7 @@ def _make_hit(
             text=text,
             page_start=page,
             page_end=page,
+            section_path=list(section_path),
             token_count=len(text.split()),
             content_hash=sha256(text.encode()).hexdigest(),
         ),
@@ -101,6 +105,24 @@ def test_evidence_pack_drops_candidates_without_query_overlap() -> None:
     pack = build_evidence_pack("초전도 큐비트", hits, "doc", "title")
 
     assert pack.blocks == ()
+
+
+def test_evidence_pack_never_exposes_search_only_context() -> None:
+    """Keep breadcrumbs out of answer evidence and overlap filtering."""
+    hit = _make_hit(
+        1,
+        10,
+        "Confabulation can mislead decisions.",
+        0.9,
+        section_path=("2.2. Confabulation",),
+    )
+
+    context_only = build_evidence_pack("2.2", (hit,), "doc", "title")
+    grounded = build_evidence_pack("decisions", (hit,), "doc", "title")
+
+    assert context_only.blocks == ()
+    assert grounded.blocks[0].text == "Confabulation can mislead decisions."
+    assert "2.2" not in grounded.blocks[0].text
 
 
 def test_evidence_pack_records_the_search_score_family() -> None:
